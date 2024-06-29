@@ -74,9 +74,13 @@ function App() {
                 <h3>How to Play</h3>
                 <ol>
                     <li>Connect your wallet</li>
-                    <li>Choose the amount of $CROAK tokens you want to bet for a chance to win 10% of the accumulated funds</li>
+                    <li>Choose the amount of $CROAK tokens you want to bet for a chance to win a percentage of the accumulated funds</li>
                     <li>Try your luck!</li>
                 </ol>
+                <h3>Important Notice</h3>
+                <p>
+                    This is a <bold>demo project</bold> built for the Linea Dev Cook-Off challenge. More details at <a href="https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey" target="_blank" rel="noopener noreferrer">here</a>.
+                </p>
                 <h3>Start Playing</h3>
                 <button className="form-element" onClick={connectWallet} disabled={isConnected}>
                     {isConnected ? "Wallet Connected" : "Connect Wallet"}
