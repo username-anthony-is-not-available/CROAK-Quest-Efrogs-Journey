@@ -59,6 +59,20 @@ This project is built upon the Phaser 3 React Template. For more details, refer 
 | `npm run test`   | Run the test suite                             |
 | `npm run deploy` | Build and deploy to GitHub Pages               |
 
+### For Linux/macOS users
+
+Replace the following line in `package.json`:
+
+    ```
+    "copy-dist-to-build": "xcopy /s /e /i dist build",
+    ```
+
+with:
+
+    ```
+    "copy-dist-to-build": "cp -r dist build",
+    ```
+
 ## Screenshot
 
 ![screenshot](screenshot.png)
