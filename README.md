@@ -81,6 +81,10 @@ with:
 
 ![screenshot](screenshot.png)
 
+## Watch the video
+
+https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey/victory_demo.mp4
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
