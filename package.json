@@ -22,7 +22,12 @@
     ],
     "scripts": {
         "dev": "vite --config vite/config.dev.mjs",
+        "predeploy": "npm run build-and-copy",
+        "deploy": "gh-pages -d build",
         "build": "vite build --config vite/config.prod.mjs",
+        "clean-build": "rimraf build",
+        "copy-dist-to-build": "cp -r dist build",
+        "build-and-copy": "npm run clean-build && npm run build && npm run copy-dist-to-build",
         "test": "npx hardhat test"
     },
     "dependencies": {
@@ -41,7 +46,9 @@
         "eslint-plugin-react-hooks": "^4.6.2",
         "eslint-plugin-react-refresh": "^0.4.7",
         "ethers": "^6.13.1",
+        "gh-pages": "^6.1.1",
         "hardhat": "^2.22.5",
+        "rimraf": "^5.0.7",
         "terser": "^5.28.1",
         "vite": "^5.3.1"
     }
