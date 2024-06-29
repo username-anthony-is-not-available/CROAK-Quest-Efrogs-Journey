@@ -63,8 +63,7 @@ input.form-element {
 }
 
 .menu-link {
-    text-decoration: none;
-    color: inherit;
+    color: #08DEFD;
 }
 
 .menu-link:hover {

@@ -79,7 +79,7 @@ function App() {
                 </ol>
                 <h3>Important Notice</h3>
                 <p>
-                    This is a <bold>demo project</bold> built for the Linea Dev Cook-Off challenge. More details at <a href="https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey" target="_blank" rel="noopener noreferrer" className="menu-link">here</a>.
+                    This is a <bold>demo project</bold> built for the Linea Dev Cook-Off challenge. For more details, visit this <a href="https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey" target="_blank" rel="noopener noreferrer" className="menu-link">GitHub repository</a>.
                 </p>
                 <h3>Start Playing</h3>
                 <button className="form-element" onClick={connectWallet} disabled={isConnected}>
