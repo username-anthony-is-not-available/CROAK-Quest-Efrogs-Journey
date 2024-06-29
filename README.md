@@ -2,14 +2,18 @@
 
 CROAK Quest: Efrogs' Journey is a blockchain-powered game that combines the charm of classic arcade games with the excitement of Web3 technology.
 
-## Important Notice
+## Live Demo
 
-This is a **demo project** built for the Linea Dev Cook-Off challenge. While you can play and interact with it on the Linea mainnet, please be aware of the following:
-
-- Linea transaction fees are low, and $CROAK tokens have minimal value.
-- **Do not input more than a few cents worth of tokens when betting, as you may lose them.**
+[Play CROAK Quest on Linea Mainnet](https://username-anthony-is-not-available.github.io/CROAK-Quest-Efrogs-Journey/)
 
 [View the Smart Contract on Linea Mainnet](https://lineascan.build/address/0xae685dbbf74a5684d25ee24d00ff33ac38b7b362)
+
+### ⚠️ Important Notice
+
+This is a **demo project** built for the Linea Dev Cook-Off challenge. While fully playable on the Linea mainnet, please note:
+
+- Linea transaction fees are low, and $CROAK tokens have minimal value.
+- **Do not bet more than a few cents worth of tokens, as you may lose them.**
 
 ## Key Features
 
