@@ -25,6 +25,7 @@ This template has been updated for:
 | `npm install` | Install project dependencies |
 | `npm run dev` | Launch a development web server |
 | `npm run build` | Create a production build in the `dist` folder |
+| `npm run test` | Launch the test suite |
 
 ## Writing Code
 
