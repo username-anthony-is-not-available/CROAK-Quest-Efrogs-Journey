@@ -89,6 +89,20 @@ https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey/
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## Autonomous Management
+
+This repository is initialized for autonomous management by the Intelligent Project Manager (IPM), Jules.
+
+### Role of Jules
+- **Monitor**: Jules tracks the project's progress by referencing `BACKLOG.md`.
+- **Execute**: Jules implements new features, fixes bugs, and improves documentation according to the tasks defined in the backlog.
+- **Enforce Standards**: All work performed by Jules must adhere to the guidelines specified in `STANDARDS.md`.
+
+### Operational Instructions
+- **Backlog**: Refer to `BACKLOG.md` for current milestones and tasks.
+- **Standards**: Refer to `STANDARDS.md` for development and quality guidelines.
+- **Testing**: Ensure all tests pass by running `npm run test` before submitting changes.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
