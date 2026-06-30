@@ -1,6 +1,14 @@
 import { ethers } from 'ethers';
 import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json' with { type: "json" };
 import IERC20_ABI from './IERC20_ABI.json' with { type: "json" };
+import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json' with { type: "json" };
+
+const LINEA_RPC_URLS = [
+    'https://rpc.linea.build',
+    'https://linea.drpc.org',
+    'https://linea.blockpi.network/v1/rpc/public',
+    'https://1rpc.io/linea'
+];
 
 class WalletManager {
     constructor() {
@@ -8,7 +16,11 @@ class WalletManager {
         this.signer = null;
         this.croakQuestEfrogsJourney = null;
         this.token = null;
+        this.efrogsNFT = null;
         this.lineaChainId = '0xe708'; // Linea Mainnet Chain ID (59144 in decimal)
+
+        const providers = LINEA_RPC_URLS.map(url => new ethers.JsonRpcProvider(url));
+        this.readProvider = new ethers.FallbackProvider(providers);
     }
 
     async connectWallet() {
@@ -49,7 +61,7 @@ class WalletManager {
                                     symbol: 'ETH',
                                     decimals: 18
                                 },
-                                rpcUrls: ['https://rpc.linea.build'],
+                                rpcUrls: LINEA_RPC_URLS,
                                 blockExplorerUrls: ['https://lineascan.build']
                             }],
                         });
@@ -67,12 +79,13 @@ class WalletManager {
         }
     }
 
-    initializeContracts(bettingGameAddress, tokenAddress) {
+    initializeContracts(bettingGameAddress, tokenAddress, efrogsNFTAddress) {
         if (!this.signer) {
             throw new Error("Wallet not connected");
         }
         this.croakQuestEfrogsJourney = new ethers.Contract(bettingGameAddress, CroakQuestEfrogsJourneyABI, this.signer);
         this.token = new ethers.Contract(tokenAddress, IERC20_ABI, this.signer);
+        this.efrogsNFT = new ethers.Contract(efrogsNFTAddress, IERC721Enumerable_ABI, this.signer);
     }
 
     async placeBet(amount) {
@@ -126,7 +139,7 @@ class WalletManager {
     }
 
     async getFirstNFTId(contractAddress) {
-        const contract = new ethers.Contract(contractAddress, IERC20_ABI, this.provider);
+        const contract = new ethers.Contract(contractAddress, IERC721Enumerable_ABI, this.readProvider);
         const walletAddress = await this.signer.getAddress()
         const balance = await contract.balanceOf(walletAddress);
         if (balance !== 0n) {
@@ -134,6 +147,29 @@ class WalletManager {
         } else {
             throw new Error('No NFTs found in the wallet');
         }
+    }
+
+    async getTokenBalance(walletAddress) {
+        if (!this.token) {
+            throw new Error("Token contract not initialized");
+        }
+        const contract = this.token.connect(this.readProvider);
+        return await contract.balanceOf(walletAddress);
+    }
+
+    async getTokenAllowance(owner, spender) {
+        if (!this.token) {
+            throw new Error("Token contract not initialized");
+        }
+        const contract = this.token.connect(this.readProvider);
+        return await contract.allowance(owner, spender);
+    }
+
+    async getNFTContractData() {
+        if (!this.efrogsNFT) {
+            throw new Error("Contracts not initialized");
+        }
+        return this.efrogsNFT.connect(this.readProvider);
     }
 
     async getNFTMetadata(tokenId) {
