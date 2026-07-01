@@ -22,10 +22,11 @@ export class MainMenu extends Scene {
         EventBus.emit('current-scene-ready', this);
     }
 
-    changeScene(hasPlayerWon, efrogsNFTBodyBase) {
+    changeScene(hasPlayerWon, efrogsNFTBodyBase, isOptimistic) {
         this.scene.start('Game', {
             hasPlayerWon: hasPlayerWon,
-            efrogsNFTBodyBase: efrogsNFTBodyBase
+            efrogsNFTBodyBase: efrogsNFTBodyBase,
+            isOptimistic: isOptimistic
         });
     }
 }

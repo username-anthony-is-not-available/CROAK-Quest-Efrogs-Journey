@@ -88,7 +88,7 @@ class WalletManager {
         this.efrogsNFT = new ethers.Contract(efrogsNFTAddress, IERC721Enumerable_ABI, this.signer);
     }
 
-    async placeBet(amount) {
+    async placeBet(amount, onTxSent) {
         if (!this.croakQuestEfrogsJourney || !this.token) {
             throw new Error("Contracts not initialized");
         }
@@ -100,6 +100,11 @@ class WalletManager {
             const approvalTx = await this.token.approve(await this.croakQuestEfrogsJourney.getAddress(), parsedAmount);
             await approvalTx.wait();
             const betTx = await this.croakQuestEfrogsJourney.bet(parsedAmount);
+
+            if (onTxSent) {
+                onTxSent(betTx);
+            }
+
             const receipt = await betTx.wait();
 
             // Find the Bet event in the transaction receipt
