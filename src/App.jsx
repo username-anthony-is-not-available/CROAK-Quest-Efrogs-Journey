@@ -35,23 +35,41 @@ function App() {
 
             if (isNaN(betAmountInt) || betAmountInt <= 0) {
                 setValidationMessage("Please enter an amount greater than 0 to play.");
+                setIsGameInProgress(false);
                 return;
             }
             setValidationMessage('');
 
-            const tx = await walletManager.placeBet(betAmountInt)
+            const onTxSent = () => {
+                const scene = phaserRef.current.scene;
+                // Start game optimistically
+                if (scene && scene.scene.key !== 'Game') {
+                    scene.changeScene(null, efrogsNFTBodyBase, true);
+                } else {
+                    scene.resetGame(null, efrogsNFTBodyBase, true);
+                }
+                setBetAmount('');
+            };
+
+            const tx = await walletManager.placeBet(betAmountInt, onTxSent);
             const hasPlayerWon = tx.won;
-            setBetAmount('');
 
             const scene = phaserRef.current.scene;
-            if (scene && scene.scene.key !== 'Game') {
-                scene.changeScene(hasPlayerWon, efrogsNFTBodyBase);
-            } else {
-                scene.resetGame(hasPlayerWon, efrogsNFTBodyBase);
+            if (scene && scene.scene.key === 'Game') {
+                scene.resolveOptimisticBet(hasPlayerWon);
+            } else if (scene) {
+                // If for some reason we are not in Game scene yet, we call changeScene with actual result
+                scene.changeScene(hasPlayerWon, efrogsNFTBodyBase, false);
             }
+
         } catch (error) {
-            alert("Failed to place a bet:", error);
-            setIsGameInProgress(false);
+            const scene = phaserRef.current.scene;
+            if (scene && scene.scene.key === 'Game') {
+                scene.cancelOptimisticBet();
+            } else {
+                setIsGameInProgress(false);
+            }
+            alert("Failed to place a bet: " + error.message);
         }
     }
 

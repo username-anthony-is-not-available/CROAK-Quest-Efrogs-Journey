@@ -35,6 +35,8 @@ export class Game extends Phaser.Scene {
 
     init(data) {
         this.hasPlayerWon = data.hasPlayerWon;
+        this.isOptimistic = data.isOptimistic || false;
+        this.isResolutionPending = this.isOptimistic;
 
         if (data.efrogsNFTBodyBase !== undefined) {
             this.efrogsNFTBodyBase = this.colors[data.efrogsNFTBodyBase];
@@ -149,6 +151,10 @@ export class Game extends Phaser.Scene {
     }
 
     startFinalAction(duration) {
+        this.isFinalActionStarted = true;
+        this.finalActionDuration = duration;
+        this.finalActionStartTime = this.time.now;
+
         if (this.hasPlayerWon) {
             this.spawnWinningLilyPad(duration);
         }
@@ -158,16 +164,18 @@ export class Game extends Phaser.Scene {
     }
 
     spawnWinningLilyPad(duration) {
-        const winningLilyPad = this.lilyPads.create(this.centerX, -50, 'lily_pad');
-        winningLilyPad.setTint(0xffff00);
+        this.winningLilyPad = this.lilyPads.create(this.centerX, -50, 'lily_pad');
+        this.winningLilyPad.setTint(0xffff00);
 
         this.tweens.add({
-            targets: winningLilyPad,
+            targets: this.winningLilyPad,
             y: this.twentyPercentY,
             duration: duration,
             ease: 'Linear',
             onComplete: () => {
-                winningLilyPad.setVelocityY(0);
+                if (this.winningLilyPad && this.winningLilyPad.active) {
+                    this.winningLilyPad.setVelocityY(0);
+                }
             }
         });
     }
@@ -179,19 +187,36 @@ export class Game extends Phaser.Scene {
             duration: duration,
             ease: 'Power2',
             onComplete: () => {
-                if (!this.hasPlayerWon) {
-                    this.frog.setGravityY(300);
-                    this.anims.create({
-                        key: 'frog_jump_splash',
-                        frames: this.anims.generateFrameNumbers('splash', { start: 0, end: 3 }),
-                        frameRate: 10,
-                        repeat: 0
+                if (this.isResolutionPending) {
+                    // Still waiting for resolution at the peak, wait a bit or just treat as loss for now?
+                    // Let's wait another 2 seconds maximum for resolution before falling
+                    this.time.delayedCall(2000, () => {
+                        if (this.isResolutionPending || !this.hasPlayerWon) {
+                            this.fall();
+                        } else {
+                            this.gameOver();
+                        }
                     });
-                    const splash = this.add.sprite(this.frog.x, this.frog.y, 'splash');
-                    splash.play('frog_jump_splash');
+                } else if (!this.hasPlayerWon) {
+                    this.fall();
+                } else {
+                    this.gameOver();
                 }
             }
         });
+    }
+
+    fall() {
+        this.frog.setGravityY(300);
+        this.anims.create({
+            key: 'frog_jump_splash',
+            frames: this.anims.generateFrameNumbers('splash', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: 0
+        });
+        const splash = this.add.sprite(this.frog.x, this.frog.y, 'splash');
+        splash.play('frog_jump_splash');
+        // Game over will be triggered by update() when frog falls below screen height
     }
 
     gameOver() {
@@ -218,10 +243,36 @@ export class Game extends Phaser.Scene {
         EventBus.emit('game-over', this);
     }
 
-    resetGame(hasPlayerWon) {
+    resolveOptimisticBet(won) {
+        this.hasPlayerWon = won;
+        this.isResolutionPending = false;
+
+        // If we are already in final action phase and won, we need to spawn the winning lily pad if it's not there
+        if (this.isFinalActionStarted && this.hasPlayerWon && !this.winningLilyPad) {
+            const remainingDuration = this.finalActionDuration - (this.time.now - this.finalActionStartTime);
+            if (remainingDuration > 0) {
+                this.spawnWinningLilyPad(remainingDuration);
+            }
+        }
+    }
+
+    cancelOptimisticBet() {
+        this.hasPlayerWon = false;
+        this.isResolutionPending = false;
+    }
+
+    resetGame(hasPlayerWon, efrogsNFTBodyBase, isOptimistic) {
         this.isGameOver = false;
         this.lilyPadCount = Phaser.Math.Between(5, 10);
         this.hasPlayerWon = hasPlayerWon;
+        this.isOptimistic = isOptimistic || false;
+        this.isResolutionPending = this.isOptimistic;
+        this.isFinalActionStarted = false;
+        this.winningLilyPad = null;
+
+        if (efrogsNFTBodyBase !== undefined) {
+            this.efrogsNFTBodyBase = this.colors[efrogsNFTBodyBase];
+        }
 
         this.frog.destroy();
 
