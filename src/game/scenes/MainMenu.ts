@@ -1,5 +1,5 @@
 import { Scene } from 'phaser';
-import { EventBus } from '../EventBus.js';
+import { EventBus } from '../EventBus';
 
 export class MainMenu extends Scene {
 
@@ -22,7 +22,7 @@ export class MainMenu extends Scene {
         EventBus.emit('current-scene-ready', this);
     }
 
-    changeScene(hasPlayerWon, efrogsNFTBodyBase, isOptimistic) {
+    changeScene(hasPlayerWon: boolean, efrogsNFTBodyBase: string, isOptimistic: boolean) {
         this.scene.start('Game', {
             hasPlayerWon: hasPlayerWon,
             efrogsNFTBodyBase: efrogsNFTBodyBase,

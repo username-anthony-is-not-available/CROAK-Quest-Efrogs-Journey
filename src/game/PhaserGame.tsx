@@ -1,20 +1,25 @@
-import PropTypes from 'prop-types';
-import { forwardRef, useEffect, useLayoutEffect, useRef, memo } from 'react';
-import { EventBus } from "./EventBus.js";
-import StartGame from "./main.js";
+import { forwardRef, useEffect, useLayoutEffect, useRef, memo, useImperativeHandle } from 'react';
+import { EventBus } from "./EventBus";
+import StartGame from "./main";
 
-export const PhaserGame = memo(forwardRef(function PhaserGame({ currentActiveScene, onGameOver }, ref) {
-    const game = useRef();
+export interface IPhaserGameRef {
+    game: Phaser.Game | undefined;
+    scene: Phaser.Scene | any | null;
+}
+
+interface IProps {
+    currentActiveScene?: (sceneKey: string) => void;
+    onGameOver?: () => void;
+}
+
+export const PhaserGame = memo(forwardRef<IPhaserGameRef, IProps>(function PhaserGame({ currentActiveScene, onGameOver }, ref) {
+    const game = useRef<Phaser.Game>();
 
     // Create the game inside a useLayoutEffect hook to avoid the game being created outside the DOM
     useLayoutEffect(() => {
 
         if (game.current === undefined) {
             game.current = StartGame("game-container");
-
-            if (ref !== null) {
-                ref.current = { game: game.current, scene: null };
-            }
         }
 
         return () => {
@@ -25,7 +30,12 @@ export const PhaserGame = memo(forwardRef(function PhaserGame({ currentActiveSce
             }
 
         }
-    }, [ref]);
+    }, []);
+
+    useImperativeHandle(ref, () => ({
+        game: game.current,
+        scene: null
+    }), []);
 
     const currentActiveSceneRef = useRef(currentActiveScene);
     const onGameOverRef = useRef(onGameOver);
@@ -37,19 +47,19 @@ export const PhaserGame = memo(forwardRef(function PhaserGame({ currentActiveSce
 
     useEffect(() => {
 
-        EventBus.on('current-scene-ready', (currentScene) => {
+        EventBus.on('current-scene-ready', (currentScene: any) => {
 
-            if (currentActiveSceneRef.current instanceof Function) {
+            if (typeof currentActiveSceneRef.current === 'function') {
                 currentActiveSceneRef.current(currentScene.scene.key);
             }
-            if (ref && ref.current) {
+            if (ref && 'current' in ref && ref.current) {
                 ref.current.scene = currentScene;
             }
 
         });
 
         EventBus.on('game-over', () => {
-            if (onGameOverRef.current instanceof Function) {
+            if (typeof onGameOverRef.current === 'function') {
                 onGameOverRef.current();
             }
         });
@@ -68,9 +78,3 @@ export const PhaserGame = memo(forwardRef(function PhaserGame({ currentActiveSce
     );
 
 }));
-
-// Props definitions
-PhaserGame.propTypes = {
-    currentActiveScene: PropTypes.func,
-    onGameOver: PropTypes.func
-}

@@ -1,11 +1,11 @@
 import {
   time,
   loadFixture,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs.js";
-import chai from "chai";
-
-const { expect } = chai;
+} from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { Lock__factory } from "../typechain-types";
 
 describe("Lock", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -21,7 +21,7 @@ describe("Lock", function () {
     // Contracts are deployed using the first signer/account by default
     const [owner, otherAccount] = await ethers.getSigners();
 
-    const Lock = await ethers.getContractFactory("Lock");
+    const Lock = (await ethers.getContractFactory("Lock")) as Lock__factory;
     const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
 
     return { lock, unlockTime, lockedAmount, owner, otherAccount };
@@ -45,7 +45,7 @@ describe("Lock", function () {
         deployOneYearLockFixture
       );
 
-      expect(await ethers.provider.getBalance(lock.target)).to.equal(
+      expect(await ethers.provider.getBalance(lock.getAddress())).to.equal(
         lockedAmount
       );
     });

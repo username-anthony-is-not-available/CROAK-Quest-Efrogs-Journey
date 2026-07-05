@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { PhaserGame } from "./game/PhaserGame.jsx";
-import { EventBus } from './game/EventBus.js';
-import WalletManager from './web3/WalletManager.js';
+import { PhaserGame, IPhaserGameRef } from "./game/PhaserGame";
+import { EventBus } from './game/EventBus';
+import WalletManager from './web3/WalletManager';
 
 const CROAKQuestContractAddress = '0xae685dbbf74a5684d25ee24d00ff33ac38b7b362';
 const CROAKTokenAddress = '0xaCb54d07cA167934F57F829BeE2cC665e1A5ebEF';
@@ -23,7 +23,8 @@ function App() {
             setEfrogsNFTBodyBase(await walletManager.getBodyBaseProperty(efrogsNFTAddress));
             setIsConnected(true);
         } catch (error) {
-            alert("Failed to connect wallet:", error);
+            console.error("Failed to connect wallet:", error);
+            alert("Failed to connect wallet.");
         }
     };
 
@@ -42,11 +43,11 @@ function App() {
             setValidationMessage('');
 
             const onTxSent = () => {
-                const scene = phaserRef.current.scene;
+                const scene = phaserRef.current?.scene;
                 // Start game optimistically
                 if (scene && scene.scene.key !== 'Game') {
                     scene.changeScene(null, efrogsNFTBodyBase, true);
-                } else {
+                } else if (scene) {
                     scene.resetGame(null, efrogsNFTBodyBase, true);
                 }
                 setBetAmount('');
@@ -55,7 +56,7 @@ function App() {
             const tx = await walletManager.placeBet(betAmountInt, onTxSent);
             const hasPlayerWon = tx.won;
 
-            const scene = phaserRef.current.scene;
+            const scene = phaserRef.current?.scene;
             if (scene && scene.scene.key === 'Game') {
                 scene.resolveOptimisticBet(hasPlayerWon);
             } else if (scene) {
@@ -63,8 +64,8 @@ function App() {
                 scene.changeScene(hasPlayerWon, efrogsNFTBodyBase, false);
             }
 
-        } catch (error) {
-            const scene = phaserRef.current.scene;
+        } catch (error: any) {
+            const scene = phaserRef.current?.scene;
             if (scene && scene.scene.key === 'Game') {
                 scene.cancelOptimisticBet();
             } else {
@@ -75,10 +76,10 @@ function App() {
     }
 
     // References to the PhaserGame component (game and scene are exposed)
-    const phaserRef = useRef();
+    const phaserRef = useRef<IPhaserGameRef>(null);
 
     // Event emitted from the PhaserGame component
-    const currentScene = useCallback((sceneKey) => {
+    const currentScene = useCallback((sceneKey: string) => {
         setIsGameInProgress(sceneKey === 'Game');
     }, []);
 
@@ -87,12 +88,12 @@ function App() {
     }, []);
 
     useEffect(() => {
-        const handleBalanceChange = (player) => {
+        const handleBalanceChange = (player: string) => {
             console.log(`Wallet balance changed for ${player}`);
             // In a real app, we might trigger a balance refresh here
         };
 
-        const handleRewardPayout = ({ player, amount }) => {
+        const handleRewardPayout = ({ player, amount }: { player: string, amount: bigint }) => {
             console.log(`Reward payout of ${amount} to ${player}`);
             // In a real app, we might show a celebration UI or notification
         };
@@ -118,7 +119,7 @@ function App() {
                 </ol>
                 <h3>Important Notice</h3>
                 <p>
-                    This is a <bold>demo project</bold> built for the Linea Dev Cook-Off challenge. For more details, visit this <a href="https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey" target="_blank" rel="noopener noreferrer" className="menu-link">GitHub repository</a>.
+                    This is a <b>demo project</b> built for the Linea Dev Cook-Off challenge. For more details, visit this <a href="https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey" target="_blank" rel="noopener noreferrer" className="menu-link">GitHub repository</a>.
                 </p>
                 <h3>Start Playing</h3>
                 <button className="form-element" onClick={connectWallet} disabled={isConnected}>

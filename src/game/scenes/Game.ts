@@ -1,45 +1,64 @@
 import Phaser from 'phaser';
-import { EventBus } from '../EventBus.js';
+import { EventBus } from '../EventBus';
 
 export class Game extends Phaser.Scene {
+    isGameOver: boolean = false;
+    lilyPadCount: number = 0;
+    safeZoneWidth: number = 200;
+    lilyPadSpeed: number = 200;
+    spawnInterval: number = 250;
+    spawnedLilyPads: number = 0;
+    totalGameTime: number = 4000; // 4 seconds in milliseconds
+    colors: Record<string, number[]> = {
+        "Black": [0x4b4755],
+        "Grey": [0x998aa1],
+        "Red": [0xfe5165],
+        "Blue": [0x00b8e6],
+        "Green": [0x31a076],
+        "Orange": [0xff745b],
+        "Furry": [0x712e59],
+        "Ninja": [0x2d3548],
+        "Spotted": [0x905a72],
+        "Crystal": [0x0092b7],
+        "Puffer Fish": [0xff5738],
+        "Skeleton": [0x9aabb2],
+        "Psychedelic Wave": [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x8b00ff],
+        "Snow Camouflage": [0x9aabb2],
+        "Alien": [0x0093bb],
+        "Desert": [0x968072],
+        "Not found": [0xade890]
+    };
+    efrogsNFTBodyBase: number[] = this.colors["Not found"];
+    hasPlayerWon: boolean = false;
+    isOptimistic: boolean = false;
+    isResolutionPending: boolean = false;
+    centerX: number = 0;
+    centerY: number = 0;
+    twentyPercentY: number = 0;
+    ninetyPercentY: number = 0;
+    waterTexture!: Phaser.GameObjects.TileSprite;
+    frog!: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+    lilyPads!: Phaser.Physics.Arcade.Group;
+    startLilyPad!: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+    winningLilyPad: Phaser.Types.Physics.Arcade.ImageWithDynamicBody | null = null;
+    tintIndex: number = 0;
+    isFinalActionStarted: boolean = false;
+    finalActionDuration: number = 0;
+    finalActionStartTime: number = 0;
+
     constructor() {
         super('Game');
-        this.isGameOver = false;
-        this.lilyPadCount = Phaser.Math.Between(5, 10);
-        this.safeZoneWidth = 200;
-        this.lilyPadSpeed = 200;
-        this.spawnInterval = 250;
-        this.spawnedLilyPads = 0;
-        this.totalGameTime = 4000; // 4 seconds in milliseconds
-        this.colors = {
-            "Black": [0x4b4755],
-            "Grey": [0x998aa1],
-            "Red": [0xfe5165],
-            "Blue": [0x00b8e6],
-            "Green": [0x31a076],
-            "Orange": [0xff745b],
-            "Furry": [0x712e59],
-            "Ninja": [0x2d3548],
-            "Spotted": [0x905a72],
-            "Crystal": [0x0092b7],
-            "Puffer Fish": [0xff5738],
-            "Skeleton": [0x9aabb2],
-            "Psychedelic Wave": [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x8b00ff],
-            "Snow Camouflage": [0x9aabb2],
-            "Alien": [0x0093bb],
-            "Desert": [0x968072],
-            "Not found": [0xade890]
-        };
-        this.efrogsNFTBodyBase = this.colors["Not found"];
     }
 
-    init(data) {
+    init(data: any) {
+        this.isGameOver = false;
+        this.lilyPadCount = Phaser.Math.Between(5, 10);
         this.hasPlayerWon = data.hasPlayerWon;
         this.isOptimistic = data.isOptimistic || false;
         this.isResolutionPending = this.isOptimistic;
 
         if (data.efrogsNFTBodyBase !== undefined) {
-            this.efrogsNFTBodyBase = this.colors[data.efrogsNFTBodyBase];
+            this.efrogsNFTBodyBase = this.colors[data.efrogsNFTBodyBase] || this.colors["Not found"];
         }
 
         this.centerX = this.cameras.main.width / 2;
@@ -108,7 +127,8 @@ export class Game extends Phaser.Scene {
             this.gameOver();
         }
 
-        this.lilyPads.children.entries.forEach(lilyPad => {
+        this.lilyPads.children.entries.forEach(child => {
+            const lilyPad = child as Phaser.GameObjects.GameObject & { y: number };
             if (lilyPad.y > this.cameras.main.height) {
                 lilyPad.destroy();
             }
@@ -137,7 +157,7 @@ export class Game extends Phaser.Scene {
             x = Phaser.Math.Between(0, this.cameras.main.width);
         } while (Math.abs(x - this.centerX) < this.safeZoneWidth / 2);
 
-        const lilyPad = this.lilyPads.create(x, -50, 'lily_pad');
+        const lilyPad = this.lilyPads.create(x, -50, 'lily_pad') as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
         lilyPad.setVelocityY(this.lilyPadSpeed);
 
         this.tweens.add({
@@ -150,7 +170,7 @@ export class Game extends Phaser.Scene {
         });
     }
 
-    startFinalAction(duration) {
+    startFinalAction(duration: number) {
         this.isFinalActionStarted = true;
         this.finalActionDuration = duration;
         this.finalActionStartTime = this.time.now;
@@ -163,8 +183,8 @@ export class Game extends Phaser.Scene {
         this.startLilyPad.setVelocityY(this.lilyPadSpeed);
     }
 
-    spawnWinningLilyPad(duration) {
-        this.winningLilyPad = this.lilyPads.create(this.centerX, -50, 'lily_pad');
+    spawnWinningLilyPad(duration: number) {
+        this.winningLilyPad = this.lilyPads.create(this.centerX, -50, 'lily_pad') as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
         this.winningLilyPad.setTint(0xffff00);
 
         this.tweens.add({
@@ -180,7 +200,7 @@ export class Game extends Phaser.Scene {
         });
     }
 
-    jump(duration) {
+    jump(duration: number) {
         this.tweens.add({
             targets: this.frog,
             y: this.twentyPercentY,
@@ -208,12 +228,14 @@ export class Game extends Phaser.Scene {
 
     fall() {
         this.frog.setGravityY(300);
-        this.anims.create({
-            key: 'frog_jump_splash',
-            frames: this.anims.generateFrameNumbers('splash', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: 0
-        });
+        if (!this.anims.exists('frog_jump_splash')) {
+            this.anims.create({
+                key: 'frog_jump_splash',
+                frames: this.anims.generateFrameNumbers('splash', { start: 0, end: 3 }),
+                frameRate: 10,
+                repeat: 0
+            });
+        }
         const splash = this.add.sprite(this.frog.x, this.frog.y, 'splash');
         splash.play('frog_jump_splash');
         // Game over will be triggered by update() when frog falls below screen height
@@ -228,7 +250,10 @@ export class Game extends Phaser.Scene {
             this.frog.setVisible(false);
         }
 
-        this.lilyPads.children.entries.forEach(lilyPad => lilyPad.setVelocity(0, 0));
+        this.lilyPads.children.entries.forEach(child => {
+            const lilyPad = child as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+            lilyPad.setVelocity(0, 0)
+        });
 
         const gameOverText = this.hasPlayerWon ? 'Victory!' : 'Better Luck Next Time!';
         this.add.text(this.centerX, this.centerY, gameOverText, {
@@ -243,7 +268,7 @@ export class Game extends Phaser.Scene {
         EventBus.emit('game-over', this);
     }
 
-    resolveOptimisticBet(won) {
+    resolveOptimisticBet(won: boolean) {
         this.hasPlayerWon = won;
         this.isResolutionPending = false;
 
@@ -261,7 +286,7 @@ export class Game extends Phaser.Scene {
         this.isResolutionPending = false;
     }
 
-    resetGame(hasPlayerWon, efrogsNFTBodyBase, isOptimistic) {
+    resetGame(hasPlayerWon: boolean, efrogsNFTBodyBase: string, isOptimistic: boolean) {
         this.isGameOver = false;
         this.lilyPadCount = Phaser.Math.Between(5, 10);
         this.hasPlayerWon = hasPlayerWon;
@@ -271,7 +296,7 @@ export class Game extends Phaser.Scene {
         this.winningLilyPad = null;
 
         if (efrogsNFTBodyBase !== undefined) {
-            this.efrogsNFTBodyBase = this.colors[efrogsNFTBodyBase];
+            this.efrogsNFTBodyBase = this.colors[efrogsNFTBodyBase] || this.colors["Not found"];
         }
 
         this.frog.destroy();

@@ -1,18 +1,18 @@
 import Phaser from 'phaser';
-import { Game } from './scenes/Game.js';
-import { MainMenu } from './scenes/MainMenu.js';
-import { Preloader } from './scenes/Preloader.js';
+import { Game } from './scenes/Game';
+import { MainMenu } from './scenes/MainMenu';
+import { Preloader } from './scenes/Preloader';
 
 // Find out more information about the Game Config at:
 // https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
-const config = {
+const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     width: window.innerWidth,
     height: window.innerHeight,
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 0 },
+            gravity: { y: 0, x: 0 },
             debug: false
         }
     },
@@ -32,7 +32,7 @@ const config = {
     ]
 };
 
-const StartGame = (parent) => {
+const StartGame = (parent: string) => {
 
     return new Phaser.Game({ ...config, parent });
 

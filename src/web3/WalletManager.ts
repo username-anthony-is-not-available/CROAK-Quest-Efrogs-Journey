@@ -1,8 +1,9 @@
-import { ethers } from 'ethers';
-import { EventBus } from '../game/EventBus.js';
-import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json' with { type: "json" };
-import IERC20_ABI from './IERC20_ABI.json' with { type: "json" };
-import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json' with { type: "json" };
+import { ethers, BrowserProvider, JsonRpcProvider, FallbackProvider, Signer, Contract } from 'ethers';
+import { EventBus } from '../game/EventBus';
+import { CroakQuestEfrogsJourney, MockERC20, MockERC721 } from '../../typechain-types';
+import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json';
+import IERC20_ABI from './IERC20_ABI.json';
+import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json';
 
 const LINEA_RPC_URLS = [
     'https://rpc.linea.build',
@@ -11,17 +12,24 @@ const LINEA_RPC_URLS = [
     'https://1rpc.io/linea'
 ];
 
-class WalletManager {
-    constructor() {
-        this.provider = null;
-        this.signer = null;
-        this.croakQuestEfrogsJourney = null;
-        this.token = null;
-        this.efrogsNFT = null;
-        this.lineaChainId = '0xe708'; // Linea Mainnet Chain ID (59144 in decimal)
+declare global {
+    interface Window {
+        ethereum: any;
+    }
+}
 
-        const providers = LINEA_RPC_URLS.map(url => new ethers.JsonRpcProvider(url));
-        this.readProvider = new ethers.FallbackProvider(providers);
+class WalletManager {
+    provider: BrowserProvider | null = null;
+    signer: Signer | null = null;
+    croakQuestEfrogsJourney: CroakQuestEfrogsJourney | null = null;
+    token: MockERC20 | null = null;
+    efrogsNFT: MockERC721 | null = null;
+    lineaChainId: string = '0xe708'; // Linea Mainnet Chain ID (59144 in decimal)
+    readProvider: FallbackProvider;
+
+    constructor() {
+        const providers = LINEA_RPC_URLS.map(url => new JsonRpcProvider(url));
+        this.readProvider = new FallbackProvider(providers);
     }
 
     async connectWallet() {
@@ -29,7 +37,7 @@ class WalletManager {
             throw new Error("MetaMask not installed!");
         }
 
-        this.provider = new ethers.BrowserProvider(window.ethereum);
+        this.provider = new BrowserProvider(window.ethereum);
         await this.provider.send("eth_requestAccounts", []);
         this.signer = await this.provider.getSigner();
 
@@ -40,15 +48,18 @@ class WalletManager {
     }
 
     async checkAndSwitchToLinea() {
-        const chainId = await this.provider.getNetwork().then(network => network.chainId);
+        if (!this.provider || !window.ethereum) return;
 
-        if (chainId.toString() !== this.lineaChainId) {
+        const network = await this.provider.getNetwork();
+        const chainId = network.chainId;
+
+        if (chainId.toString() !== BigInt(this.lineaChainId).toString()) {
             try {
                 await window.ethereum.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: this.lineaChainId }],
                 });
-            } catch (switchError) {
+            } catch (switchError: any) {
                 // This error code indicates that the chain has not been added to MetaMask.
                 if (switchError.code === 4902) {
                     try {
@@ -75,21 +86,21 @@ class WalletManager {
             }
 
             // Refresh provider and signer after network switch
-            this.provider = new ethers.BrowserProvider(window.ethereum);
+            this.provider = new BrowserProvider(window.ethereum);
             this.signer = await this.provider.getSigner();
         }
     }
 
-    initializeContracts(bettingGameAddress, tokenAddress, efrogsNFTAddress) {
+    initializeContracts(bettingGameAddress: string, tokenAddress: string, efrogsNFTAddress: string) {
         if (!this.signer) {
             throw new Error("Wallet not connected");
         }
-        this.croakQuestEfrogsJourney = new ethers.Contract(bettingGameAddress, CroakQuestEfrogsJourneyABI, this.signer);
-        this.token = new ethers.Contract(tokenAddress, IERC20_ABI, this.signer);
-        this.efrogsNFT = new ethers.Contract(efrogsNFTAddress, IERC721Enumerable_ABI, this.signer);
+        this.croakQuestEfrogsJourney = new Contract(bettingGameAddress, CroakQuestEfrogsJourneyABI, this.signer) as unknown as CroakQuestEfrogsJourney;
+        this.token = new Contract(tokenAddress, IERC20_ABI, this.signer) as unknown as MockERC20;
+        this.efrogsNFT = new Contract(efrogsNFTAddress, IERC721Enumerable_ABI, this.signer) as unknown as MockERC721;
     }
 
-    async placeBet(amount, onTxSent) {
+    async placeBet(amount: number, onTxSent?: (tx: any) => void) {
         if (!this.croakQuestEfrogsJourney || !this.token) {
             throw new Error("Contracts not initialized");
         }
@@ -107,6 +118,7 @@ class WalletManager {
             }
 
             const receipt = await betTx.wait();
+            if (!receipt) throw new Error("Transaction receipt not found");
 
             // Find the Bet event in the transaction receipt
             const betEvent = receipt.logs.find(
@@ -115,9 +127,11 @@ class WalletManager {
 
             if (betEvent) {
                 const decodedEvent = this.croakQuestEfrogsJourney.interface.parseLog({
-                    topics: betEvent.topics,
+                    topics: [...betEvent.topics],
                     data: betEvent.data
                 });
+
+                if (!decodedEvent) throw new Error("Failed to decode Bet event");
 
                 // Extract event data
                 const [player, betAmount, won, nftBonus] = decodedEvent.args;
@@ -128,7 +142,7 @@ class WalletManager {
                 }
 
                 return {
-                    transactionHash: receipt.transactionHash,
+                    transactionHash: receipt.hash,
                     player: player,
                     amount: ethers.formatUnits(betAmount, 18), // Convert back to decimal
                     won: won,
@@ -136,21 +150,21 @@ class WalletManager {
                 };
             } else {
                 console.warn("Bet event not found in transaction logs");
-                return { transactionHash: receipt.transactionHash };
+                return { transactionHash: receipt.hash, won: false };
             }
-        } catch (error) {
-            if (error.message.includes("Ledger Device is busy")) {
+        } catch (error: any) {
+            if (error.message && error.message.includes("Ledger Device is busy")) {
                 console.error("Ledger device is busy. Please ensure it's unlocked and the correct app is open.");
-                // You can also show this message to the user in your UI
             } else {
                 console.error("An error occurred while placing the bet:", error);
             }
-            throw error; // Re-throw the error if you want calling code to handle it
+            throw error;
         }
     }
 
-    async getFirstNFTId(contractAddress) {
-        const contract = new ethers.Contract(contractAddress, IERC721Enumerable_ABI, this.readProvider);
+    async getFirstNFTId(contractAddress: string) {
+        if (!this.signer) throw new Error("Wallet not connected");
+        const contract = new Contract(contractAddress, IERC721Enumerable_ABI, this.readProvider);
         const walletAddress = await this.signer.getAddress()
         const balance = await contract.balanceOf(walletAddress);
         if (balance !== 0n) {
@@ -160,19 +174,19 @@ class WalletManager {
         }
     }
 
-    async getTokenBalance(walletAddress) {
+    async getTokenBalance(walletAddress: string) {
         if (!this.token) {
             throw new Error("Token contract not initialized");
         }
-        const contract = this.token.connect(this.readProvider);
+        const contract = this.token.connect(this.readProvider) as MockERC20;
         return await contract.balanceOf(walletAddress);
     }
 
-    async getTokenAllowance(owner, spender) {
+    async getTokenAllowance(owner: string, spender: string) {
         if (!this.token) {
             throw new Error("Token contract not initialized");
         }
-        const contract = this.token.connect(this.readProvider);
+        const contract = this.token.connect(this.readProvider) as MockERC20;
         return await contract.allowance(owner, spender);
     }
 
@@ -180,10 +194,10 @@ class WalletManager {
         if (!this.efrogsNFT) {
             throw new Error("Contracts not initialized");
         }
-        return this.efrogsNFT.connect(this.readProvider);
+        return this.efrogsNFT.connect(this.readProvider) as MockERC721;
     }
 
-    async getNFTMetadata(tokenId) {
+    async getNFTMetadata(tokenId: bigint) {
         const contract = await this.getNFTContractData()
         const tokenURI = await contract.tokenURI(tokenId);
         const response = await fetch(tokenURI);
@@ -191,11 +205,11 @@ class WalletManager {
         return metadata;
     }
 
-    async getBodyBaseProperty(contractAddress) {
+    async getBodyBaseProperty(contractAddress: string) {
         try {
             const tokenId = await this.getFirstNFTId(contractAddress);
             const metadata = await this.getNFTMetadata(tokenId);
-            const bodyBase = metadata.attributes.find(attr => attr.trait_type === 'Body Base');
+            const bodyBase = metadata.attributes.find((attr: any) => attr.trait_type === 'Body Base');
             return bodyBase ? bodyBase.value : 'Not found';
         } catch {
             return 'Not found';
