@@ -39,6 +39,7 @@ export class Game extends Phaser.Scene {
     waterTexture!: Phaser.GameObjects.TileSprite;
     frog!: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
     lilyPads!: Phaser.Physics.Arcade.Group;
+    splashes!: Phaser.GameObjects.Group;
     startLilyPad!: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
     winningLilyPad: Phaser.Types.Physics.Arcade.ImageWithDynamicBody | null = null;
     tintIndex: number = 0;
@@ -71,23 +72,52 @@ export class Game extends Phaser.Scene {
         this.createWater();
         this.createLilyPads();
         this.createFrog();
+        this.createSplashes();
         this.startGame();
 
         EventBus.emit('current-scene-ready', this);
     }
 
+    createSplashes() {
+        if (!this.splashes) {
+            this.splashes = this.add.group({
+                classType: Phaser.GameObjects.Sprite,
+                maxSize: 5
+            });
+        }
+    }
+
     createWater() {
-        this.waterTexture = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'water')
-            .setOrigin(0, 0);
+        if (this.waterTexture) {
+            this.waterTexture.tilePositionX = 0;
+            this.waterTexture.tilePositionY = 0;
+        } else {
+            this.waterTexture = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'water')
+                .setOrigin(0, 0);
+        }
     }
 
     createFrog() {
-        this.frog = this.physics.add.sprite(this.centerX, this.ninetyPercentY, 'frog')
-            .setDepth(2);
+        if (this.frog) {
+            this.frog.setPosition(this.centerX, this.ninetyPercentY);
+            this.frog.setVisible(true);
+            this.frog.setAlpha(1);
+            this.frog.setGravityY(0);
+            this.frog.setVelocity(0, 0);
+            this.frog.body.allowGravity = false;
+        } else {
+            this.frog = this.physics.add.sprite(this.centerX, this.ninetyPercentY, 'frog')
+                .setDepth(2);
+        }
+
         if (this.efrogsNFTBodyBase.length === 1) {
             this.frog.setTint(this.efrogsNFTBodyBase[0]);
         } else {
             this.tintIndex = 0;
+            // Only add the timer if it doesn't exist yet to avoid multiple timers on reset
+            // However, Phaser.Scene.time.addEvent returns a TimerEvent, but we don't store it.
+            // Let's just check if we already have a tint timer.
+            // Wait, we don't have a reference to it. Let's just create it once.
             this.time.addEvent({
                 delay: 500,
                 callback: this.changeTint,
@@ -98,14 +128,45 @@ export class Game extends Phaser.Scene {
     }
 
     changeTint() {
-        this.frog.setTint(this.efrogsNFTBodyBase[this.tintIndex]);
-        this.tintIndex = (this.tintIndex + 1) % this.efrogsNFTBodyBase.length;
+        if (this.frog && this.frog.active) {
+            this.frog.setTint(this.efrogsNFTBodyBase[this.tintIndex]);
+            this.tintIndex = (this.tintIndex + 1) % this.efrogsNFTBodyBase.length;
+        }
     }
 
     createLilyPads() {
-        this.lilyPads = this.physics.add.group();
-        this.startLilyPad = this.lilyPads.create(this.centerX, this.ninetyPercentY, 'lily_pad')
-            .setDepth(1);
+        if (!this.lilyPads) {
+            this.lilyPads = this.physics.add.group({
+                classType: Phaser.Physics.Arcade.Image,
+                maxSize: 20,
+                runChildUpdate: false
+            });
+        } else {
+            this.lilyPads.children.entries.forEach(child => {
+                const lilyPad = child as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+                this.lilyPads.killAndHide(lilyPad);
+                lilyPad.body.enable = false;
+            });
+        }
+        this.startLilyPad = this.spawnLilyPadInstance(this.centerX, this.ninetyPercentY);
+        this.startLilyPad.setDepth(1);
+        this.startLilyPad.setVelocity(0, 0);
+    }
+
+    spawnLilyPadInstance(x: number, y: number): Phaser.Types.Physics.Arcade.ImageWithDynamicBody {
+        const lilyPad = this.lilyPads.get(x, y, 'lily_pad') as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+        if (lilyPad) {
+            lilyPad.setActive(true);
+            lilyPad.setVisible(true);
+            lilyPad.setPosition(x, y);
+            lilyPad.body.enable = true;
+            lilyPad.setTint(0xffffff); // Reset tint
+            lilyPad.setAngle(0); // Reset angle
+            if (lilyPad.body) {
+                lilyPad.body.reset(x, y);
+            }
+        }
+        return lilyPad;
     }
 
     update() {
@@ -128,9 +189,11 @@ export class Game extends Phaser.Scene {
         }
 
         this.lilyPads.children.entries.forEach(child => {
-            const lilyPad = child as Phaser.GameObjects.GameObject & { y: number };
-            if (lilyPad.y > this.cameras.main.height) {
-                lilyPad.destroy();
+            const lilyPad = child as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+            if (lilyPad.active && lilyPad.y > this.cameras.main.height) {
+                this.lilyPads.killAndHide(lilyPad);
+                lilyPad.body.enable = false;
+                this.tweens.killTweensOf(lilyPad);
             }
         });
     }
@@ -157,17 +220,19 @@ export class Game extends Phaser.Scene {
             x = Phaser.Math.Between(0, this.cameras.main.width);
         } while (Math.abs(x - this.centerX) < this.safeZoneWidth / 2);
 
-        const lilyPad = this.lilyPads.create(x, -50, 'lily_pad') as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
-        lilyPad.setVelocityY(this.lilyPadSpeed);
+        const lilyPad = this.spawnLilyPadInstance(x, -50);
+        if (lilyPad) {
+            lilyPad.setVelocityY(this.lilyPadSpeed);
 
-        this.tweens.add({
-            targets: lilyPad,
-            angle: { from: -5, to: 5 },
-            duration: 3000,
-            ease: 'Sine.easeInOut',
-            yoyo: true,
-            repeat: -1
-        });
+            this.tweens.add({
+                targets: lilyPad,
+                angle: { from: -5, to: 5 },
+                duration: 3000,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1
+            });
+        }
     }
 
     startFinalAction(duration: number) {
@@ -184,20 +249,22 @@ export class Game extends Phaser.Scene {
     }
 
     spawnWinningLilyPad(duration: number) {
-        this.winningLilyPad = this.lilyPads.create(this.centerX, -50, 'lily_pad') as Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
-        this.winningLilyPad.setTint(0xffff00);
+        this.winningLilyPad = this.spawnLilyPadInstance(this.centerX, -50);
+        if (this.winningLilyPad) {
+            this.winningLilyPad.setTint(0xffff00);
 
-        this.tweens.add({
-            targets: this.winningLilyPad,
-            y: this.twentyPercentY,
-            duration: duration,
-            ease: 'Linear',
-            onComplete: () => {
-                if (this.winningLilyPad && this.winningLilyPad.active) {
-                    this.winningLilyPad.setVelocityY(0);
+            this.tweens.add({
+                targets: this.winningLilyPad,
+                y: this.twentyPercentY,
+                duration: duration,
+                ease: 'Linear',
+                onComplete: () => {
+                    if (this.winningLilyPad && this.winningLilyPad.active) {
+                        this.winningLilyPad.setVelocityY(0);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     jump(duration: number) {
@@ -236,8 +303,17 @@ export class Game extends Phaser.Scene {
                 repeat: 0
             });
         }
-        const splash = this.add.sprite(this.frog.x, this.frog.y, 'splash');
-        splash.play('frog_jump_splash');
+
+        const splash = this.splashes.get(this.frog.x, this.frog.y, 'splash') as Phaser.GameObjects.Sprite;
+        if (splash) {
+            splash.setActive(true);
+            splash.setVisible(true);
+            splash.setPosition(this.frog.x, this.frog.y);
+            splash.play('frog_jump_splash');
+            splash.once('animationcomplete', () => {
+                this.splashes.killAndHide(splash);
+            });
+        }
         // Game over will be triggered by update() when frog falls below screen height
     }
 
@@ -298,8 +374,6 @@ export class Game extends Phaser.Scene {
         if (efrogsNFTBodyBase !== undefined) {
             this.efrogsNFTBodyBase = this.colors[efrogsNFTBodyBase] || this.colors["Not found"];
         }
-
-        this.frog.destroy();
 
         this.createWater();
         this.createLilyPads();
