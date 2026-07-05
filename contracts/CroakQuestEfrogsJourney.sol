@@ -6,12 +6,21 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CroakQuestEfrogsJourney is Ownable {
-    IERC20 public token;
-    IERC721 public nftCollection;
-    uint256 public accumulatedFunds;
+    IERC20 public immutable token;
+    IERC721 public immutable nftCollection;
+
     uint8 public winChance = 5; // Default 5% chance to win
     uint8 public winPercentage = 5; // Default 5% of accumulated funds as additional winnings
     uint8 public nftBonusPercentage = 5; // Additional 5% bonus for NFT holders
+    uint256 public accumulatedFunds;
+
+    error InvalidAmount();
+    error InsufficientBalance();
+    error InsufficientAllowance();
+    error InsufficientAccumulatedFunds();
+    error TransferFailed();
+    error InvalidWinChance();
+    error InvalidWinPercentage();
 
     event Bet(address indexed player, uint256 amount, bool won, bool nftBonus);
     event FundsAdded(uint256 amount);
@@ -25,11 +34,11 @@ contract CroakQuestEfrogsJourney is Ownable {
     }
 
     function bet(uint256 _amount) external {
-        require(_amount > 0, "Bet amount must be greater than 0");
-        require(token.balanceOf(msg.sender) >= _amount, "Insufficient balance");
-        require(token.allowance(msg.sender, address(this)) >= _amount, "Insufficient allowance");
+        if (_amount == 0) revert InvalidAmount();
+        if (token.balanceOf(msg.sender) < _amount) revert InsufficientBalance();
+        if (token.allowance(msg.sender, address(this)) < _amount) revert InsufficientAllowance();
 
-        token.transferFrom(msg.sender, address(this), _amount);
+        if (!token.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
 
         bool won = (random() % 100) < winChance;
         bool nftBonus = nftCollection.balanceOf(msg.sender) > 0;
@@ -40,7 +49,7 @@ contract CroakQuestEfrogsJourney is Ownable {
             if (nftBonus) {
                 winnings += (winnings * nftBonusPercentage / 100);
             }
-            require(accumulatedFunds >= (winnings - _amount), "Insufficient accumulated funds");
+            if (accumulatedFunds < (winnings - _amount)) revert InsufficientAccumulatedFunds();
             token.transfer(msg.sender, winnings);
             accumulatedFunds -= (winnings - _amount);
         } else {
@@ -51,26 +60,26 @@ contract CroakQuestEfrogsJourney is Ownable {
     }
 
     function addFunds(uint256 _amount) external onlyOwner {
-        require(token.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
+        if (!token.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
         accumulatedFunds += _amount;
         emit FundsAdded(_amount);
     }
 
     function removeFunds(uint256 _amount) external onlyOwner {
-        require(_amount <= accumulatedFunds, "Insufficient accumulated funds");
-        require(token.transfer(msg.sender, _amount), "Transfer failed");
+        if (_amount > accumulatedFunds) revert InsufficientAccumulatedFunds();
+        if (!token.transfer(msg.sender, _amount)) revert TransferFailed();
         accumulatedFunds -= _amount;
         emit FundsRemoved(_amount);
     }
 
     function setWinChance(uint8 _newChance) external onlyOwner {
-        require(_newChance > 0 && _newChance <= 100, "Invalid win chance");
+        if (_newChance == 0 || _newChance > 100) revert InvalidWinChance();
         winChance = _newChance;
         emit WinChanceUpdated(_newChance);
     }
 
     function setWinPercentage(uint8 _newPercentage) external onlyOwner {
-        require(_newPercentage > 0 && _newPercentage <= 100, "Invalid win percentage");
+        if (_newPercentage == 0 || _newPercentage > 100) revert InvalidWinPercentage();
         winPercentage = _newPercentage;
         emit WinPercentageUpdated(_newPercentage);
     }
