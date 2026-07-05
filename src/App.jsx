@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { PhaserGame } from "./game/PhaserGame.jsx";
+import { EventBus } from './game/EventBus.js';
 import WalletManager from './web3/WalletManager.js';
 
 const CROAKQuestContractAddress = '0xae685dbbf74a5684d25ee24d00ff33ac38b7b362';
@@ -77,13 +78,33 @@ function App() {
     const phaserRef = useRef();
 
     // Event emitted from the PhaserGame component
-    const currentScene = (scene) => {
-        setIsGameInProgress(scene.scene.key === 'Game');
-    }
+    const currentScene = useCallback((sceneKey) => {
+        setIsGameInProgress(sceneKey === 'Game');
+    }, []);
 
-    const gameOver = () => {
-        setIsGameInProgress(false)
-    }
+    const gameOver = useCallback(() => {
+        setIsGameInProgress(false);
+    }, []);
+
+    useEffect(() => {
+        const handleBalanceChange = (player) => {
+            console.log(`Wallet balance changed for ${player}`);
+            // In a real app, we might trigger a balance refresh here
+        };
+
+        const handleRewardPayout = ({ player, amount }) => {
+            console.log(`Reward payout of ${amount} to ${player}`);
+            // In a real app, we might show a celebration UI or notification
+        };
+
+        EventBus.on('wallet-balance-changed', handleBalanceChange);
+        EventBus.on('reward-payout', handleRewardPayout);
+
+        return () => {
+            EventBus.removeListener('wallet-balance-changed', handleBalanceChange);
+            EventBus.removeListener('reward-payout', handleRewardPayout);
+        };
+    }, []);
 
     return (
         <div id="app">

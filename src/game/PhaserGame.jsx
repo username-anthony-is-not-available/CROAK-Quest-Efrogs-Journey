@@ -1,9 +1,9 @@
 import PropTypes from 'prop-types';
-import { forwardRef, useEffect, useLayoutEffect, useRef } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, memo } from 'react';
 import { EventBus } from "./EventBus.js";
 import StartGame from "./main.js";
 
-export const PhaserGame = forwardRef(function PhaserGame({ currentActiveScene, onGameOver }, ref) {
+export const PhaserGame = memo(forwardRef(function PhaserGame({ currentActiveScene, onGameOver }, ref) {
     const game = useRef();
 
     // Create the game inside a useLayoutEffect hook to avoid the game being created outside the DOM
@@ -27,42 +27,47 @@ export const PhaserGame = forwardRef(function PhaserGame({ currentActiveScene, o
         }
     }, [ref]);
 
+    const currentActiveSceneRef = useRef(currentActiveScene);
+    const onGameOverRef = useRef(onGameOver);
+
+    useEffect(() => {
+        currentActiveSceneRef.current = currentActiveScene;
+        onGameOverRef.current = onGameOver;
+    }, [currentActiveScene, onGameOver]);
+
     useEffect(() => {
 
         EventBus.on('current-scene-ready', (currentScene) => {
 
-            if (currentActiveScene instanceof Function) {
-                currentActiveScene(currentScene);
+            if (currentActiveSceneRef.current instanceof Function) {
+                currentActiveSceneRef.current(currentScene.scene.key);
             }
-            ref.current.scene = currentScene;
+            if (ref && ref.current) {
+                ref.current.scene = currentScene;
+            }
 
+        });
+
+        EventBus.on('game-over', () => {
+            if (onGameOverRef.current instanceof Function) {
+                onGameOverRef.current();
+            }
         });
 
         return () => {
 
             EventBus.removeListener('current-scene-ready');
-
-        }
-
-    }, [currentActiveScene, ref])
-
-    useEffect(() => {
-        EventBus.on('game-over', () => {
-            if (onGameOver instanceof Function) {
-                onGameOver();
-            }
-        });
-
-        return () => {
             EventBus.removeListener('game-over');
+
         }
-    }, [onGameOver]);
+
+    }, [ref]);
 
     return (
         <div id="game-container"></div>
     );
 
-});
+}));
 
 // Props definitions
 PhaserGame.propTypes = {
