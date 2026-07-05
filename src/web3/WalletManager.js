@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { EventBus } from '../game/EventBus.js';
 import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json' with { type: "json" };
 import IERC20_ABI from './IERC20_ABI.json' with { type: "json" };
 import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json' with { type: "json" };
@@ -120,6 +121,11 @@ class WalletManager {
 
                 // Extract event data
                 const [player, betAmount, won, nftBonus] = decodedEvent.args;
+
+                EventBus.emit('wallet-balance-changed', player);
+                if (won) {
+                    EventBus.emit('reward-payout', { player, amount: betAmount });
+                }
 
                 return {
                     transactionHash: receipt.transactionHash,
