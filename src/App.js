@@ -1,0 +1,125 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const react_1 = require("react");
+const PhaserGame_1 = require("./game/PhaserGame");
+const EventBus_1 = require("./game/EventBus");
+const WalletManager_1 = __importDefault(require("./web3/WalletManager"));
+const CROAKQuestContractAddress = '0xae685dbbf74a5684d25ee24d00ff33ac38b7b362';
+const CROAKTokenAddress = '0xaCb54d07cA167934F57F829BeE2cC665e1A5ebEF';
+const efrogsNFTAddress = '0x194395587d7b169e63eaf251e86b1892fa8f1960';
+const walletManager = new WalletManager_1.default();
+function App() {
+    const [betAmount, setBetAmount] = (0, react_1.useState)('');
+    const [isConnected, setIsConnected] = (0, react_1.useState)(false);
+    const [isGameInProgress, setIsGameInProgress] = (0, react_1.useState)(false);
+    const [validationMessage, setValidationMessage] = (0, react_1.useState)('');
+    const [efrogsNFTBodyBase, setEfrogsNFTBodyBase] = (0, react_1.useState)('');
+    const connectWallet = async () => {
+        try {
+            await walletManager.connectWallet();
+            await walletManager.initializeContracts(CROAKQuestContractAddress, CROAKTokenAddress, efrogsNFTAddress);
+            setEfrogsNFTBodyBase(await walletManager.getBodyBaseProperty(efrogsNFTAddress));
+            setIsConnected(true);
+        }
+        catch (error) {
+            console.error("Failed to connect wallet:", error);
+            alert("Failed to connect wallet.");
+        }
+    };
+    const changeScene = async () => {
+        setIsGameInProgress(true);
+        try {
+            const betAmountInt = parseInt(betAmount, 10);
+            if (isNaN(betAmountInt) || betAmountInt <= 0) {
+                setValidationMessage("Please enter an amount greater than 0 to play.");
+                setIsGameInProgress(false);
+                return;
+            }
+            setValidationMessage('');
+            const onTxSent = () => {
+                const scene = phaserRef.current?.scene;
+                // Start game optimistically
+                if (scene && scene.scene.key !== 'Game') {
+                    scene.changeScene(null, efrogsNFTBodyBase, true);
+                }
+                else if (scene) {
+                    scene.resetGame(null, efrogsNFTBodyBase, true);
+                }
+                setBetAmount('');
+            };
+            const tx = await walletManager.placeBet(betAmountInt, onTxSent);
+            const hasPlayerWon = tx.won;
+            const scene = phaserRef.current?.scene;
+            if (scene && scene.scene.key === 'Game') {
+                scene.resolveOptimisticBet(hasPlayerWon);
+            }
+            else if (scene) {
+                // If for some reason we are not in Game scene yet, we call changeScene with actual result
+                scene.changeScene(hasPlayerWon, efrogsNFTBodyBase, false);
+            }
+        }
+        catch (error) {
+            const scene = phaserRef.current?.scene;
+            if (scene && scene.scene.key === 'Game') {
+                scene.cancelOptimisticBet();
+            }
+            else {
+                setIsGameInProgress(false);
+            }
+            alert("Failed to place a bet: " + error.message);
+        }
+    };
+    // References to the PhaserGame component (game and scene are exposed)
+    const phaserRef = (0, react_1.useRef)(null);
+    // Event emitted from the PhaserGame component
+    const currentScene = (0, react_1.useCallback)((sceneKey) => {
+        setIsGameInProgress(sceneKey === 'Game');
+    }, []);
+    const gameOver = (0, react_1.useCallback)(() => {
+        setIsGameInProgress(false);
+    }, []);
+    (0, react_1.useEffect)(() => {
+        const handleBalanceChange = (player) => {
+            console.log(`Wallet balance changed for ${player}`);
+            // In a real app, we might trigger a balance refresh here
+        };
+        const handleRewardPayout = ({ player, amount }) => {
+            console.log(`Reward payout of ${amount} to ${player}`);
+            // In a real app, we might show a celebration UI or notification
+        };
+        EventBus_1.EventBus.on('wallet-balance-changed', handleBalanceChange);
+        EventBus_1.EventBus.on('reward-payout', handleRewardPayout);
+        return () => {
+            EventBus_1.EventBus.removeListener('wallet-balance-changed', handleBalanceChange);
+            EventBus_1.EventBus.removeListener('reward-payout', handleRewardPayout);
+        };
+    }, []);
+    return (<div id="app">
+            <PhaserGame_1.PhaserGame ref={phaserRef} currentActiveScene={currentScene} onGameOver={gameOver}/>
+            <div id="menu">
+                <h3>How to Play</h3>
+                <ol>
+                    <li>Connect your wallet</li>
+                    <li>Choose the amount of $CROAK tokens you want to bet for a chance to win a percentage of the accumulated funds</li>
+                    <li>Try your luck!</li>
+                </ol>
+                <h3>Important Notice</h3>
+                <p>
+                    This is a <b>demo project</b> built for the Linea Dev Cook-Off challenge. For more details, visit this <a href="https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey" target="_blank" rel="noopener noreferrer" className="menu-link">GitHub repository</a>.
+                </p>
+                <h3>Start Playing</h3>
+                <button className="form-element" onClick={connectWallet} disabled={isConnected}>
+                    {isConnected ? "Wallet Connected" : "Connect Wallet"}
+                </button>
+                <input type="text" className="form-element" placeholder="Enter $CROAK Amount" value={betAmount} onChange={(e) => setBetAmount(e.target.value)} disabled={!isConnected || isGameInProgress}/>
+                {validationMessage && <p style={{ color: 'red' }}>{validationMessage}</p>}
+                <button className="form-element" onClick={changeScene} disabled={!isConnected || isGameInProgress}>
+                    Play Now
+                </button>
+            </div>
+        </div>);
+}
+exports.default = App;

@@ -1,11 +1,11 @@
 import {
   time,
   loadFixture,
-} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
+} from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
+import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs.js";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Lock__factory } from "../typechain-types";
+import { Lock__factory } from "../typechain-types/index.js";
 
 describe("Lock", function () {
   // We define a fixture to reuse the same setup in every test.
