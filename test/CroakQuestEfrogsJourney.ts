@@ -1,8 +1,22 @@
 import { expect } from "chai";
+import { ethers } from "hardhat";
+import {
+    CroakQuestEfrogsJourney,
+    MockERC20,
+    MockERC721,
+    CroakQuestEfrogsJourney__factory,
+    MockERC20__factory,
+    MockERC721__factory
+} from "../typechain-types";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("CroakQuestEfrogsJourney", function () {
-    let CroakQuestEfrogsJourney, croakQuest, Token, token, NFT, nft;
-    let owner, player1, player2;
+    let croakQuest: CroakQuestEfrogsJourney;
+    let token: MockERC20;
+    let nft: MockERC721;
+    let owner: SignerWithAddress;
+    let player1: SignerWithAddress;
+    let player2: SignerWithAddress;
     const initialFunds = ethers.parseEther("1000");
     const betAmount = ethers.parseEther("10");
 
@@ -10,16 +24,16 @@ describe("CroakQuestEfrogsJourney", function () {
         [owner, player1, player2] = await ethers.getSigners();
 
         // Deploy Token contract
-        Token = await ethers.getContractFactory("MockERC20");
-        token = await Token.deploy("Mock Token", "MTK");
+        const tokenFactory = (await ethers.getContractFactory("MockERC20")) as MockERC20__factory;
+        token = await tokenFactory.deploy("Mock Token", "MTK");
 
         // Deploy NFT contract
-        NFT = await ethers.getContractFactory("MockERC721");
-        nft = await NFT.deploy("Mock NFT", "MNFT");
+        const nftFactory = (await ethers.getContractFactory("MockERC721")) as MockERC721__factory;
+        nft = await nftFactory.deploy("Mock NFT", "MNFT");
 
         // Deploy CroakQuestEfrogsJourney
-        CroakQuestEfrogsJourney = await ethers.getContractFactory("CroakQuestEfrogsJourney");
-        croakQuest = await CroakQuestEfrogsJourney.deploy(await token.getAddress(), await nft.getAddress());
+        const croakQuestFactory = (await ethers.getContractFactory("CroakQuestEfrogsJourney")) as CroakQuestEfrogsJourney__factory;
+        croakQuest = await croakQuestFactory.deploy(await token.getAddress(), await nft.getAddress());
 
         // Mint tokens to players and approve spending
         await token.mint(player1.address, initialFunds);
@@ -35,12 +49,21 @@ describe("CroakQuestEfrogsJourney", function () {
         it("Should allow players to bet and emit correct event", async function () {
             const tx = await croakQuest.connect(player1).bet(betAmount);
             const receipt = await tx.wait();
+            if (!receipt) throw new Error("Receipt not found");
 
             // Check if Bet event was emitted
-            const betEvent = receipt.logs.find(log => log.eventName === 'Bet');
+            const betEvent = receipt.logs.find(log => {
+                try {
+                    const parsed = croakQuest.interface.parseLog({ topics: [...log.topics], data: log.data });
+                    return parsed?.name === 'Bet';
+                } catch {
+                    return false;
+                }
+            });
             expect(betEvent).to.not.be.undefined;
 
-            const [bettor, amount, won, nftBonus] = betEvent.args;
+            const decodedEvent = croakQuest.interface.parseLog({ topics: [...betEvent!.topics], data: betEvent!.data });
+            const [bettor, amount, won, nftBonus] = decodedEvent!.args;
             expect(bettor).to.equal(await player1.getAddress());
             expect(amount).to.equal(betAmount);
             expect(typeof won).to.equal('boolean');
@@ -66,9 +89,18 @@ describe("CroakQuestEfrogsJourney", function () {
 
             const tx = await croakQuest.connect(player1).bet(betAmount);
             const receipt = await tx.wait();
+            if (!receipt) throw new Error("Receipt not found");
 
-            const betEvent = receipt.logs.find(log => log.eventName === 'Bet');
-            const [, , , nftBonus] = betEvent.args;
+            const betEvent = receipt.logs.find(log => {
+                try {
+                    const parsed = croakQuest.interface.parseLog({ topics: [...log.topics], data: log.data });
+                    return parsed?.name === 'Bet';
+                } catch {
+                    return false;
+                }
+            });
+            const decodedEvent = croakQuest.interface.parseLog({ topics: [...betEvent!.topics], data: betEvent!.data });
+            const [, , , nftBonus] = decodedEvent!.args;
 
             expect(nftBonus).to.be.true;
         });
