@@ -1,25 +1,16 @@
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import {
-    CroakQuestEfrogsJourney,
-    MockERC20,
-    MockERC721,
-    VRFCoordinatorV2MockProxy,
-    CroakQuestEfrogsJourney__factory,
-    MockERC20__factory,
-    MockERC721__factory,
-    VRFCoordinatorV2MockProxy__factory
-} from "../typechain-types/index.js";
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import chai from "chai";
+import hre from "hardhat";
 
+const { expect } = chai;
+const { ethers } = hre;
 describe("CroakQuestEfrogsJourney", function () {
-    let croakQuest: CroakQuestEfrogsJourney;
-    let token: MockERC20;
-    let nft: MockERC721;
-    let vrfCoordinator: VRFCoordinatorV2MockProxy;
-    let owner: SignerWithAddress;
-    let player1: SignerWithAddress;
-    let player2: SignerWithAddress;
+    let croakQuest: any;
+    let token: any;
+    let nft: any;
+    let vrfCoordinator: any;
+    let owner: any;
+    let player1: any;
+    let player2: any;
     const initialFunds = ethers.parseEther("1000");
     const betAmount = ethers.parseEther("10");
 
@@ -33,7 +24,7 @@ describe("CroakQuestEfrogsJourney", function () {
         [owner, player1, player2] = await ethers.getSigners();
 
         // Deploy VRF Mock
-        const vrfFactory = (await ethers.getContractFactory("VRFCoordinatorV2MockProxy")) as VRFCoordinatorV2MockProxy__factory;
+        const vrfFactory = await ethers.getContractFactory("VRFCoordinatorV2MockProxy");
         vrfCoordinator = await vrfFactory.deploy(BASE_FEE, GAS_PRICE_LINK);
 
         // Create subscription
@@ -53,15 +44,15 @@ describe("CroakQuestEfrogsJourney", function () {
         await vrfCoordinator.fundSubscription(subId, ethers.parseEther("10"));
 
         // Deploy Token contract
-        const tokenFactory = (await ethers.getContractFactory("MockERC20")) as MockERC20__factory;
+        const tokenFactory = await ethers.getContractFactory("MockERC20");
         token = await tokenFactory.deploy("Mock Token", "MTK");
 
         // Deploy NFT contract
-        const nftFactory = (await ethers.getContractFactory("MockERC721")) as MockERC721__factory;
+        const nftFactory = await ethers.getContractFactory("MockERC721");
         nft = await nftFactory.deploy("Mock NFT", "MNFT");
 
         // Deploy CroakQuestEfrogsJourney
-        const croakQuestFactory = (await ethers.getContractFactory("CroakQuestEfrogsJourney")) as CroakQuestEfrogsJourney__factory;
+        const croakQuestFactory = await ethers.getContractFactory("CroakQuestEfrogsJourney");
         croakQuest = await croakQuestFactory.deploy(
             await token.getAddress(),
             await nft.getAddress(),
@@ -212,6 +203,73 @@ describe("CroakQuestEfrogsJourney", function () {
 
             // Check if accumulated funds decreased
             expect(finalAccumulatedFunds).to.be.below(initialAccumulatedFunds);
+        });
+    });
+
+    describe("Dynamic Max Bet Cap", function () {
+        it("Should calculate maxBetAmount correctly based on accumulated funds and percentage", async function () {
+            // accumulatedFunds = 1000 CROAK, maxBetPercentage = 5
+            const maxBet = await croakQuest.maxBetAmount();
+            expect(maxBet).to.equal(ethers.parseEther("50"));
+        });
+
+        it("Should revert with BetExceedsMaxLiquidity when bet exceeds max bet cap", async function () {
+            // accumulatedFunds = 1000 CROAK, maxBetPercentage = 5% => maxBet = 50 CROAK
+            const bet60 = ethers.parseEther("60");
+            const maxBet50 = ethers.parseEther("50");
+
+            await expect(croakQuest.connect(player1).bet(bet60))
+                .to.be.revertedWithCustomError(croakQuest, "BetExceedsMaxLiquidity")
+                .withArgs(bet60, maxBet50);
+        });
+
+        it("Should allow a bet exactly at or below the max bet cap", async function () {
+            const bet50 = ethers.parseEther("50");
+            await expect(croakQuest.connect(player1).bet(bet50)).to.not.be.reverted;
+        });
+
+        it("Should automatically scale up max bet cap when accumulated funds increase", async function () {
+            // Mint and approve 1000 CROAK more for owner
+            await token.mint(owner.address, ethers.parseEther("1000"));
+            await token.connect(owner).approve(await croakQuest.getAddress(), ethers.parseEther("1000"));
+
+            // Add 1000 CROAK more to contract => accumulatedFunds = 2000 CROAK
+            await croakQuest.connect(owner).addFunds(ethers.parseEther("1000"));
+            // maxBet is now 5% of 2000 = 100 CROAK
+            expect(await croakQuest.maxBetAmount()).to.equal(ethers.parseEther("100"));
+
+            // 60 CROAK bet should now succeed
+            const bet60 = ethers.parseEther("60");
+            await expect(croakQuest.connect(player1).bet(bet60)).to.not.be.reverted;
+        });
+
+        it("Should allow owner to update maxBetPercentage and adjust allowed bets", async function () {
+            // Change max percentage to 10%
+            await expect(croakQuest.connect(owner).setMaxBetPercentage(10))
+                .to.emit(croakQuest, "MaxBetPercentageUpdated")
+                .withArgs(10);
+
+            expect(await croakQuest.maxBetPercentage()).to.equal(10);
+            expect(await croakQuest.maxBetAmount()).to.equal(ethers.parseEther("100"));
+
+            // 60 CROAK bet now succeeds
+            const bet60 = ethers.parseEther("60");
+            await expect(croakQuest.connect(player1).bet(bet60)).to.not.be.reverted;
+        });
+
+        it("Should revert when setMaxBetPercentage is called with invalid values or by non-owner", async function () {
+            // Non-owner call
+            await expect(croakQuest.connect(player1).setMaxBetPercentage(10))
+                .to.be.revertedWithCustomError(croakQuest, "OwnableUnauthorizedAccount")
+                .withArgs(player1.address);
+
+            // Invalid value 0
+            await expect(croakQuest.connect(owner).setMaxBetPercentage(0))
+                .to.be.revertedWithCustomError(croakQuest, "InvalidMaxBetPercentage");
+
+            // Invalid value > 25 (e.g., 26)
+            await expect(croakQuest.connect(owner).setMaxBetPercentage(26))
+                .to.be.revertedWithCustomError(croakQuest, "InvalidMaxBetPercentage");
         });
     });
 });
