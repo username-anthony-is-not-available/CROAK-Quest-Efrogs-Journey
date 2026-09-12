@@ -22,6 +22,15 @@ This is a **demo project** built for the Linea Dev Cook-Off challenge. While ful
 - **Efrogs NFT Ownership**: Personalize your in-game frog with your Efrogs NFT.
 - **Charming Visuals**: Enjoy ~~vibrant graphics~~ poorly drawn pixel art that bring the pond and its inhabitants to life.
 
+## House Rules & Betting Limits
+
+To ensure contract solvency and prevent payout transaction reverts due to insufficient house liquidity, individual bet sizes are capped dynamically relative to the contract's accumulated pool:
+
+- **Maximum Bet Sizing Formula**:
+  $$\text{Max Bet Amount} = \frac{\text{Accumulated Funds} \times \text{Max Bet Percentage}}{100}$$
+- **Default Cap**: 5% of accumulated house funds (configurable by contract owner between 1% and 25%).
+- **Dynamic Scaling**: The maximum bet limit scales automatically as liquidity is added or accumulated through gameplay. Any attempt to bet beyond the dynamic limit reverts on-chain with `BetExceedsMaxLiquidity(amount, maxBet)`.
+
 ## Technology Stack
 
 - Phaser 3

@@ -15,6 +15,7 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
     uint8 public winChance = 5; // Default 5% chance to win
     uint8 public winPercentage = 5; // Default 5% of accumulated funds as additional winnings
     uint8 public nftBonusPercentage = 5; // Additional 5% bonus for NFT holders
+    uint8 public maxBetPercentage = 5; // Default max bet cap of 5% of accumulated funds
     uint256 public accumulatedFunds;
 
     // VRF Variables
@@ -40,12 +41,15 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
     error TransferFailed();
     error InvalidWinChance();
     error InvalidWinPercentage();
+    error InvalidMaxBetPercentage();
+    error BetExceedsMaxLiquidity(uint256 amount, uint256 maxBet);
 
     event Bet(address indexed player, uint256 amount, bool won, bool nftBonus);
     event FundsAdded(uint256 amount);
     event FundsRemoved(uint256 amount);
     event WinChanceUpdated(uint8 newChance);
     event WinPercentageUpdated(uint8 newPercentage);
+    event MaxBetPercentageUpdated(uint8 newPercentage);
     event BetRequested(uint256 indexed requestId, address indexed player, uint256 amount);
     event SubscriptionIdSet(uint64 subscriptionId);
     event KeyHashSet(bytes32 keyHash);
@@ -82,8 +86,14 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
         emit CallbackGasLimitSet(_callbackGasLimit);
     }
 
+    function maxBetAmount() public view returns (uint256) {
+        return (accumulatedFunds * maxBetPercentage) / 100;
+    }
+
     function bet(uint256 _amount) external nonReentrant {
         if (_amount == 0) revert InvalidAmount();
+        uint256 maxBet = maxBetAmount();
+        if (_amount > maxBet) revert BetExceedsMaxLiquidity(_amount, maxBet);
         if (token.balanceOf(msg.sender) < _amount) revert InsufficientBalance();
         if (token.allowance(msg.sender, address(this)) < _amount) revert InsufficientAllowance();
 
@@ -161,6 +171,12 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
         if (_newPercentage == 0 || _newPercentage > 100) revert InvalidWinPercentage();
         winPercentage = _newPercentage;
         emit WinPercentageUpdated(_newPercentage);
+    }
+
+    function setMaxBetPercentage(uint8 _newPercentage) external onlyOwner {
+        if (_newPercentage == 0 || _newPercentage > 25) revert InvalidMaxBetPercentage();
+        maxBetPercentage = _newPercentage;
+        emit MaxBetPercentageUpdated(_newPercentage);
     }
 
 }
