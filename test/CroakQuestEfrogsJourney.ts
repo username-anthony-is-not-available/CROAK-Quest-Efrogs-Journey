@@ -272,4 +272,65 @@ describe("CroakQuestEfrogsJourney", function () {
                 .to.be.revertedWithCustomError(croakQuest, "InvalidMaxBetPercentage");
         });
     });
+
+    describe("Pausable Emergency Stop", function () {
+        it("Should allow betting when not paused", async function () {
+            expect(await croakQuest.paused()).to.be.false;
+            await expect(croakQuest.connect(player1).bet(betAmount)).to.not.be.reverted;
+        });
+
+        it("Should allow owner to pause and emit Paused event", async function () {
+            await expect(croakQuest.connect(owner).pause())
+                .to.emit(croakQuest, "Paused")
+                .withArgs(owner.address);
+
+            expect(await croakQuest.paused()).to.be.true;
+        });
+
+        it("Should revert bet with EnforcedPause when paused", async function () {
+            await croakQuest.connect(owner).pause();
+
+            await expect(croakQuest.connect(player1).bet(betAmount))
+                .to.be.revertedWithCustomError(croakQuest, "EnforcedPause");
+        });
+
+        it("Should allow owner to call removeFunds when contract is paused", async function () {
+            await croakQuest.connect(owner).pause();
+
+            const withdrawAmount = ethers.parseEther("100");
+            await expect(croakQuest.connect(owner).removeFunds(withdrawAmount))
+                .to.emit(croakQuest, "FundsRemoved")
+                .withArgs(withdrawAmount);
+        });
+
+        it("Should revert pause or unpause when called by non-owner", async function () {
+            await expect(croakQuest.connect(player1).pause())
+                .to.be.revertedWithCustomError(croakQuest, "OwnableUnauthorizedAccount")
+                .withArgs(player1.address);
+
+            await croakQuest.connect(owner).pause();
+
+            await expect(croakQuest.connect(player1).unpause())
+                .to.be.revertedWithCustomError(croakQuest, "OwnableUnauthorizedAccount")
+                .withArgs(player1.address);
+        });
+
+        it("Should allow owner to unpause and emit Unpaused event", async function () {
+            await croakQuest.connect(owner).pause();
+
+            await expect(croakQuest.connect(owner).unpause())
+                .to.emit(croakQuest, "Unpaused")
+                .withArgs(owner.address);
+
+            expect(await croakQuest.paused()).to.be.false;
+        });
+
+        it("Should allow betting again after owner unpauses", async function () {
+            await croakQuest.connect(owner).pause();
+            await expect(croakQuest.connect(player1).bet(betAmount)).to.be.revertedWithCustomError(croakQuest, "EnforcedPause");
+
+            await croakQuest.connect(owner).unpause();
+            await expect(croakQuest.connect(player1).bet(betAmount)).to.not.be.reverted;
+        });
+    });
 });
