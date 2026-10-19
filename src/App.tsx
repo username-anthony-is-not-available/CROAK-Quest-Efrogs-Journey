@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { PhaserGame, IPhaserGameRef } from "./game/PhaserGame";
 import { EventBus } from './game/EventBus';
 import WalletManager from './web3/WalletManager';
+import { normalizeWeb3Error } from './web3/errorNormalizer';
 
 const CROAKQuestContractAddress = '0xae685dbbf74a5684d25ee24d00ff33ac38b7b362';
 const CROAKTokenAddress = '0xaCb54d07cA167934F57F829BeE2cC665e1A5ebEF';
@@ -9,39 +10,48 @@ const efrogsNFTAddress = '0x194395587d7b169e63eaf251e86b1892fa8f1960';
 
 const walletManager = new WalletManager();
 
+interface NotificationToast {
+    type: 'info' | 'error' | 'success';
+    message: string;
+}
+
 function App() {
     const [betAmount, setBetAmount] = useState('');
     const [isConnected, setIsConnected] = useState(false);
     const [isGameInProgress, setIsGameInProgress] = useState(false);
     const [validationMessage, setValidationMessage] = useState('');
     const [efrogsNFTBodyBase, setEfrogsNFTBodyBase] = useState('');
+    const [toast, setToast] = useState<NotificationToast | null>(null);
 
     const connectWallet = async () => {
+        setToast(null);
         try {
             await walletManager.connectWallet();
             await walletManager.initializeContracts(CROAKQuestContractAddress, CROAKTokenAddress, efrogsNFTAddress);
             setEfrogsNFTBodyBase(await walletManager.getBodyBaseProperty(efrogsNFTAddress));
             setIsConnected(true);
-        } catch (error) {
-            console.error("Failed to connect wallet:", error);
-            alert("Failed to connect wallet.");
+        } catch (error: any) {
+            const normalized = error?.isUserRejection !== undefined ? error : normalizeWeb3Error(error);
+            setToast({
+                type: normalized.isUserRejection ? 'info' : 'error',
+                message: normalized.message || "Failed to connect wallet."
+            });
         }
     };
 
     const changeScene = async () => {
+        const betAmountInt = parseInt(betAmount, 10);
 
+        if (isNaN(betAmountInt) || betAmountInt <= 0) {
+            setValidationMessage("Please enter an amount greater than 0 to play.");
+            return;
+        }
+
+        setValidationMessage('');
+        setToast(null);
         setIsGameInProgress(true);
 
         try {
-            const betAmountInt = parseInt(betAmount, 10);
-
-            if (isNaN(betAmountInt) || betAmountInt <= 0) {
-                setValidationMessage("Please enter an amount greater than 0 to play.");
-                setIsGameInProgress(false);
-                return;
-            }
-            setValidationMessage('');
-
             const onTxSent = () => {
                 const scene = phaserRef.current?.scene;
                 // Start game optimistically
@@ -71,9 +81,14 @@ function App() {
             } else {
                 setIsGameInProgress(false);
             }
-            alert("Failed to place a bet: " + error.message);
+
+            const normalized = error?.isUserRejection !== undefined ? error : normalizeWeb3Error(error);
+            setToast({
+                type: normalized.isUserRejection ? 'info' : 'error',
+                message: normalized.message || "Failed to place a bet."
+            });
         }
-    }
+    };
 
     // References to the PhaserGame component (game and scene are exposed)
     const phaserRef = useRef<IPhaserGameRef>(null);
@@ -134,6 +149,12 @@ function App() {
                     disabled={!isConnected || isGameInProgress}
                 />
                 {validationMessage && <p style={{ color: 'red' }}>{validationMessage}</p>}
+                {toast && (
+                    <div className={`toast toast-${toast.type}`} role="alert">
+                        <span>{toast.message}</span>
+                        <button type="button" className="toast-close-btn" onClick={() => setToast(null)} aria-label="Close notification">&times;</button>
+                    </div>
+                )}
                 <button className="form-element" onClick={changeScene} disabled={!isConnected || isGameInProgress}>
                     Play Now
                 </button>
