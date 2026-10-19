@@ -1,10 +1,11 @@
-import { ethers, BrowserProvider, JsonRpcProvider, FallbackProvider, Signer, Contract } from 'ethers';
-import { EventBus } from '../game/EventBus';
-import { CroakQuestEfrogsJourney, MockERC20, MockERC721 } from '../../typechain-types';
-import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json';
-import IERC20_ABI from './IERC20_ABI.json';
-import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json';
-import { normalizeWeb3Error } from './errorNormalizer';
+import { ethers } from 'ethers';
+import { EventBus } from '../game/EventBus.ts';
+import type { CroakQuestEfrogsJourney, MockERC20, MockERC721 } from '../../typechain-types';
+import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json' with { type: 'json' };
+import IERC20_ABI from './IERC20_ABI.json' with { type: 'json' };
+import IERC721_ABI from './IERC721_ABI.json' with { type: 'json' };
+import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json' with { type: 'json' };
+import { normalizeWeb3Error } from './errorNormalizer.ts';
 
 const LINEA_RPC_URLS = [
     'https://rpc.linea.build',
@@ -20,17 +21,17 @@ declare global {
 }
 
 class WalletManager {
-    provider: BrowserProvider | null = null;
-    signer: Signer | null = null;
+    provider: ethers.BrowserProvider | null = null;
+    signer: ethers.Signer | null = null;
     croakQuestEfrogsJourney: CroakQuestEfrogsJourney | null = null;
     token: MockERC20 | null = null;
     efrogsNFT: MockERC721 | null = null;
     lineaChainId: string = '0xe708'; // Linea Mainnet Chain ID (59144 in decimal)
-    readProvider: FallbackProvider;
+    readProvider: ethers.FallbackProvider;
 
     constructor() {
-        const providers = LINEA_RPC_URLS.map(url => new JsonRpcProvider(url));
-        this.readProvider = new FallbackProvider(providers);
+        const providers = LINEA_RPC_URLS.map(url => new ethers.JsonRpcProvider(url));
+        this.readProvider = new ethers.FallbackProvider(providers);
     }
 
     async connectWallet() {
@@ -39,7 +40,7 @@ class WalletManager {
         }
 
         try {
-            this.provider = new BrowserProvider(window.ethereum);
+            this.provider = new ethers.BrowserProvider(window.ethereum);
             await this.provider.send("eth_requestAccounts", []);
             this.signer = await this.provider.getSigner();
 
@@ -91,7 +92,7 @@ class WalletManager {
             }
 
             // Refresh provider and signer after network switch
-            this.provider = new BrowserProvider(window.ethereum);
+            this.provider = new ethers.BrowserProvider(window.ethereum);
             this.signer = await this.provider.getSigner();
         }
     }
@@ -100,9 +101,9 @@ class WalletManager {
         if (!this.signer) {
             throw new Error("Wallet not connected");
         }
-        this.croakQuestEfrogsJourney = new Contract(bettingGameAddress, CroakQuestEfrogsJourneyABI, this.signer) as unknown as CroakQuestEfrogsJourney;
-        this.token = new Contract(tokenAddress, IERC20_ABI, this.signer) as unknown as MockERC20;
-        this.efrogsNFT = new Contract(efrogsNFTAddress, IERC721Enumerable_ABI, this.signer) as unknown as MockERC721;
+        this.croakQuestEfrogsJourney = new ethers.Contract(bettingGameAddress, CroakQuestEfrogsJourneyABI, this.signer) as unknown as CroakQuestEfrogsJourney;
+        this.token = new ethers.Contract(tokenAddress, IERC20_ABI, this.signer) as unknown as MockERC20;
+        this.efrogsNFT = new ethers.Contract(efrogsNFTAddress, IERC721_ABI, this.signer) as unknown as MockERC721;
     }
 
     async placeBet(amount: number, onTxSent?: (tx: any) => void) {
@@ -127,7 +128,7 @@ class WalletManager {
 
             // Find the Bet event in the transaction receipt
             const betEvent = receipt.logs.find(
-                log => log.topics[0] === ethers.id("Bet(address,uint256,bool,bool)")
+                (log: any) => log.topics[0] === ethers.id("Bet(address,uint256,bool,bool)")
             );
 
             if (betEvent) {
@@ -167,8 +168,8 @@ class WalletManager {
 
     async getFirstNFTId(contractAddress: string) {
         if (!this.signer) throw new Error("Wallet not connected");
-        const contract = new Contract(contractAddress, IERC721Enumerable_ABI, this.readProvider);
-        const walletAddress = await this.signer.getAddress()
+        const contract = new ethers.Contract(contractAddress, IERC721_ABI, this.readProvider);
+        const walletAddress = await this.signer.getAddress();
         const balance = await contract.balanceOf(walletAddress);
         if (balance !== 0n) {
             return await contract.tokenOfOwnerByIndex(walletAddress, 0);
@@ -193,17 +194,23 @@ class WalletManager {
         return await contract.allowance(owner, spender);
     }
 
-    async getNFTContractData() {
+    async getNFTContractData(contractAddress?: string) {
+        if (contractAddress) {
+            return new ethers.Contract(contractAddress, IERC721_ABI, this.readProvider);
+        }
         if (!this.efrogsNFT) {
             throw new Error("Contracts not initialized");
         }
         return this.efrogsNFT.connect(this.readProvider) as MockERC721;
     }
 
-    async getNFTMetadata(tokenId: bigint) {
-        const contract = await this.getNFTContractData()
-        const tokenURI = await contract.tokenURI(tokenId);
-        const response = await fetch(tokenURI);
+    async getNFTMetadata(tokenId: bigint | number | string, contractAddress?: string) {
+        const contract = await this.getNFTContractData(contractAddress);
+        const tokenURI: string = await contract.tokenURI(tokenId);
+        const url = tokenURI.startsWith('ipfs://')
+            ? tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/')
+            : tokenURI;
+        const response = await fetch(url);
         const metadata = await response.json();
         return metadata;
     }
@@ -211,9 +218,11 @@ class WalletManager {
     async getBodyBaseProperty(contractAddress: string) {
         try {
             const tokenId = await this.getFirstNFTId(contractAddress);
-            const metadata = await this.getNFTMetadata(tokenId);
-            const bodyBase = metadata.attributes.find((attr: any) => attr.trait_type === 'Body Base');
-            return bodyBase ? bodyBase.value : 'Not found';
+            const metadata = await this.getNFTMetadata(tokenId, contractAddress);
+            const bodyBase = metadata?.attributes?.find((attr: any) => attr.trait_type === 'Body Base');
+            const traitValue = bodyBase ? bodyBase.value : 'Not found';
+            console.log(`[NFT] Detected token ID: ${tokenId}, Body Base: ${traitValue}`);
+            return traitValue;
         } catch {
             return 'Not found';
         }
