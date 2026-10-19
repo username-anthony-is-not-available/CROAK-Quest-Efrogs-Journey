@@ -21,6 +21,7 @@
         "vite"
     ],
     "scripts": {
+        "postinstall": "cd node_modules/@openzeppelin 2>/dev/null && (ln -s contracts-4.9.6 contracts@4.9.6 2>/dev/null || true) || true",
         "dev": "vite --config vite/config.dev.mjs",
         "predeploy": "npm run build-and-copy",
         "deploy": "gh-pages -d build",
@@ -28,7 +29,7 @@
         "clean-build": "rimraf build",
         "copy-dist-to-build": "xcopy /s /e /i dist build",
         "build-and-copy": "npm run clean-build && npm run build && npm run copy-dist-to-build",
-        "test": "npx hardhat test",
+        "test": "npx hardhat test --config hardhat.config.cjs test/CroakQuestEfrogsJourney.ts",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
