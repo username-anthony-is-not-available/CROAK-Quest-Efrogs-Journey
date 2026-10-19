@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -10,6 +11,8 @@ import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 
 contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable token;
     IERC721 public immutable nftCollection;
 
@@ -39,7 +42,6 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard,
     error InsufficientBalance();
     error InsufficientAllowance();
     error InsufficientAccumulatedFunds();
-    error TransferFailed();
     error InvalidWinChance();
     error InvalidWinPercentage();
     error InvalidMaxBetPercentage();
@@ -98,7 +100,7 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard,
         if (token.balanceOf(msg.sender) < _amount) revert InsufficientBalance();
         if (token.allowance(msg.sender, address(this)) < _amount) revert InsufficientAllowance();
 
-        if (!token.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
+        token.safeTransferFrom(msg.sender, address(this), _amount);
 
         bool nftBonus = nftCollection.balanceOf(msg.sender) > 0;
 
@@ -134,11 +136,11 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard,
                 winnings += (winnings * nftBonusPercentage / 100);
             }
             if (accumulatedFunds >= (winnings - amount)) {
-                token.transfer(request.player, winnings);
+                token.safeTransfer(request.player, winnings);
                 accumulatedFunds -= (winnings - amount);
             } else {
                 // Should not happen if house is well funded, but as a fallback, refund the bet
-                token.transfer(request.player, amount);
+                token.safeTransfer(request.player, amount);
                 won = false;
             }
         } else {
@@ -150,14 +152,14 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard,
     }
 
     function addFunds(uint256 _amount) external onlyOwner nonReentrant {
-        if (!token.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
+        token.safeTransferFrom(msg.sender, address(this), _amount);
         accumulatedFunds += _amount;
         emit FundsAdded(_amount);
     }
 
     function removeFunds(uint256 _amount) external onlyOwner nonReentrant {
         if (_amount > accumulatedFunds) revert InsufficientAccumulatedFunds();
-        if (!token.transfer(msg.sender, _amount)) revert TransferFailed();
+        token.safeTransfer(msg.sender, _amount);
         accumulatedFunds -= _amount;
         emit FundsRemoved(_amount);
     }
