@@ -31,6 +31,15 @@ To ensure contract solvency and prevent payout transaction reverts due to insuff
 - **Default Cap**: 5% of accumulated house funds (configurable by contract owner between 1% and 25%).
 - **Dynamic Scaling**: The maximum bet limit scales automatically as liquidity is added or accumulated through gameplay. Any attempt to bet beyond the dynamic limit reverts on-chain with `BetExceedsMaxLiquidity(amount, maxBet)`.
 
+## Chainlink VRF Integration & Two-Step Randomness
+
+To prevent predictable randomness exploits and ensure tamper-proof win outcomes, CROAK Quest integrates Chainlink VRF (Verifiable Random Function) V2 Plus:
+
+- **Two-Step Workflow**:
+  1. **Bet Request**: When a player calls `bet(amount)`, tokens are transferred, a request is sent to the Chainlink VRF Coordinator, a pending bet is recorded in `s_pendingBets`, and a `BetRequested(requestId, player, amount)` event is emitted.
+  2. **VRF Fulfillment**: Off-chain Chainlink VRF nodes generate verifiable randomness and fulfill the request via callback (`fulfillRandomWords`). The contract calculates the win/loss outcome, updates house funds, transfers winnings on a win, and emits `BetSettled(requestId, player, won, winnings)`.
+- **Security Advantages**: Smart contracts calling `bet()` cannot query or manipulate the random outcome in the same block, completely preventing block timestamp manipulation, front-running, and revert exploits.
+
 ## Technology Stack
 
 - Phaser 3
@@ -38,6 +47,7 @@ To ensure contract solvency and prevent payout transaction reverts due to insuff
 - Vite
 - Hardhat
 - Solidity
+- Chainlink VRF V2 Plus
 
 This project is built upon the Phaser 3 React Template. For more details, refer to the [official GitHub repository](https://github.com/phaserjs/template-react).
 

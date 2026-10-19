@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
-import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard {
+contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
     IERC20 public immutable token;
     IERC721 public immutable nftCollection;
 
@@ -19,20 +18,20 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
     uint256 public accumulatedFunds;
 
     // VRF Variables
-    VRFCoordinatorV2Interface public immutable COORDINATOR;
-    uint64 public s_subscriptionId;
+    uint256 public s_subscriptionId;
     bytes32 public s_keyHash;
     uint32 public s_callbackGasLimit;
-    uint16 public constant REQUEST_CONFIRMATIONS = 3;
+    uint16 public s_requestConfirmations = 3;
     uint32 public constant NUM_WORDS = 1;
 
-    struct BetRequest {
+    struct PendingBet {
         address player;
         uint256 amount;
         bool nftBonus;
+        bool resolved;
     }
 
-    mapping(uint256 => BetRequest) public s_requests;
+    mapping(uint256 => PendingBet) public s_pendingBets;
 
     error InvalidAmount();
     error InsufficientBalance();
@@ -43,35 +42,38 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
     error InvalidWinPercentage();
     error InvalidMaxBetPercentage();
     error BetExceedsMaxLiquidity(uint256 amount, uint256 maxBet);
+    error AlreadyResolved();
+    error RequestNotFound();
 
     event Bet(address indexed player, uint256 amount, bool won, bool nftBonus);
+    event BetRequested(uint256 indexed requestId, address indexed player, uint256 amount);
+    event BetSettled(uint256 indexed requestId, address indexed player, bool won, uint256 winnings);
     event FundsAdded(uint256 amount);
     event FundsRemoved(uint256 amount);
     event WinChanceUpdated(uint8 newChance);
     event WinPercentageUpdated(uint8 newPercentage);
     event MaxBetPercentageUpdated(uint8 newPercentage);
-    event BetRequested(uint256 indexed requestId, address indexed player, uint256 amount);
-    event SubscriptionIdSet(uint64 subscriptionId);
+    event SubscriptionIdSet(uint256 subscriptionId);
     event KeyHashSet(bytes32 keyHash);
     event CallbackGasLimitSet(uint32 callbackGasLimit);
+    event RequestConfirmationsSet(uint16 requestConfirmations);
 
     constructor(
         address _tokenAddress,
         address _nftCollectionAddress,
         address _vrfCoordinator,
-        uint64 _subscriptionId,
+        uint256 _subscriptionId,
         bytes32 _keyHash,
         uint32 _callbackGasLimit
-    ) Ownable(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
+    ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
         token = IERC20(_tokenAddress);
         nftCollection = IERC721(_nftCollectionAddress);
-        COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
         s_subscriptionId = _subscriptionId;
         s_keyHash = _keyHash;
         s_callbackGasLimit = _callbackGasLimit;
     }
 
-    function setSubscriptionId(uint64 _subscriptionId) external onlyOwner {
+    function setSubscriptionId(uint256 _subscriptionId) external onlyOwner {
         s_subscriptionId = _subscriptionId;
         emit SubscriptionIdSet(_subscriptionId);
     }
@@ -86,11 +88,16 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
         emit CallbackGasLimitSet(_callbackGasLimit);
     }
 
+    function setRequestConfirmations(uint16 _requestConfirmations) external onlyOwner {
+        s_requestConfirmations = _requestConfirmations;
+        emit RequestConfirmationsSet(_requestConfirmations);
+    }
+
     function maxBetAmount() public view returns (uint256) {
         return (accumulatedFunds * maxBetPercentage) / 100;
     }
 
-    function bet(uint256 _amount) external nonReentrant {
+    function bet(uint256 _amount) external nonReentrant returns (uint256 requestId) {
         if (_amount == 0) revert InvalidAmount();
         uint256 maxBet = maxBetAmount();
         if (_amount > maxBet) revert BetExceedsMaxLiquidity(_amount, maxBet);
@@ -101,30 +108,37 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
 
         bool nftBonus = nftCollection.balanceOf(msg.sender) > 0;
 
-        uint256 requestId = COORDINATOR.requestRandomWords(
-            s_keyHash,
-            s_subscriptionId,
-            REQUEST_CONFIRMATIONS,
-            s_callbackGasLimit,
-            NUM_WORDS
+        requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: s_keyHash,
+                subId: s_subscriptionId,
+                requestConfirmations: s_requestConfirmations,
+                callbackGasLimit: s_callbackGasLimit,
+                numWords: NUM_WORDS,
+                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+            })
         );
 
-        s_requests[requestId] = BetRequest({
+        s_pendingBets[requestId] = PendingBet({
             player: msg.sender,
             amount: _amount,
-            nftBonus: nftBonus
+            nftBonus: nftBonus,
+            resolved: false
         });
 
         emit BetRequested(requestId, msg.sender, _amount);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-        BetRequest storage request = s_requests[requestId];
-        if (request.player == address(0)) return;
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+        PendingBet storage pending = s_pendingBets[requestId];
+        if (pending.player == address(0)) revert RequestNotFound();
+        if (pending.resolved) revert AlreadyResolved();
+
+        pending.resolved = true;
 
         bool won = (randomWords[0] % 100) < winChance;
-        bool nftBonus = request.nftBonus;
-        uint256 amount = request.amount;
+        bool nftBonus = pending.nftBonus;
+        uint256 amount = pending.amount;
 
         uint256 winnings = amount;
         if (won) {
@@ -133,19 +147,21 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
                 winnings += (winnings * nftBonusPercentage / 100);
             }
             if (accumulatedFunds >= (winnings - amount)) {
-                token.transfer(request.player, winnings);
                 accumulatedFunds -= (winnings - amount);
+                token.transfer(pending.player, winnings);
             } else {
-                // Should not happen if house is well funded, but as a fallback, refund the bet
-                token.transfer(request.player, amount);
+                // Fallback: refund bet amount
+                token.transfer(pending.player, amount);
                 won = false;
+                winnings = amount;
             }
         } else {
             accumulatedFunds += amount;
+            winnings = 0;
         }
 
-        emit Bet(request.player, amount, won, nftBonus);
-        delete s_requests[requestId];
+        emit BetSettled(requestId, pending.player, won, winnings);
+        emit Bet(pending.player, amount, won, nftBonus);
     }
 
     function addFunds(uint256 _amount) external onlyOwner nonReentrant {
@@ -178,5 +194,4 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
         maxBetPercentage = _newPercentage;
         emit MaxBetPercentageUpdated(_newPercentage);
     }
-
 }
