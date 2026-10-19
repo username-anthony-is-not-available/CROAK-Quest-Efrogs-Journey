@@ -32,6 +32,7 @@ This directory contains Web3 contract interaction logic and ABI interface defini
    - Logs status to console: `[NFT] Detected token ID: {id}, Body Base: {trait}`.
    - Returns the trait value (e.g., `'Tree Frog Green'`), or `'Not found'` without throwing unhandled JS exceptions if the wallet owns no NFTs or if fetching metadata fails.
 
-## Web3 Error Handling
+## Web3 Error Handling & Pending Transaction Recovery
 
-Web3 errors and user rejections are normalized via `src/web3/errorNormalizer.ts` (ADR-003) to distinguish user cancellations (e.g. MetaMask code `4001` or `ACTION_REJECTED`) from contract reverts and network errors.
+- **Error Normalization**: Web3 errors and user rejections are normalized via `src/web3/errorNormalizer.ts` (ADR-003) to distinguish user cancellations (e.g. MetaMask code `4001` or `ACTION_REJECTED`) from contract reverts and network errors.
+- **Client-Side Disconnection Recovery**: Pending transaction hashes are persisted to `localStorage` under `croak_quest_pending_tx` prior to receipt confirmation (ADR-004). Upon page reload or reconnection, `WalletManager.recoverPendingTransaction()` queries the provider receipt, parses the `Bet` event, emits balance and payout updates via `EventBus`, and presents the outcome to the player, clearing `localStorage`. Stale pending entries automatically expire after 30 minutes (TTL).
