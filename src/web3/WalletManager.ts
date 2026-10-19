@@ -4,6 +4,7 @@ import { CroakQuestEfrogsJourney, MockERC20, MockERC721 } from '../../typechain-
 import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json';
 import IERC20_ABI from './IERC20_ABI.json';
 import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json';
+import { normalizeWeb3Error } from './errorNormalizer';
 
 const LINEA_RPC_URLS = [
     'https://rpc.linea.build',
@@ -34,17 +35,21 @@ class WalletManager {
 
     async connectWallet() {
         if (window.ethereum == null) {
-            throw new Error("MetaMask not installed!");
+            throw normalizeWeb3Error(new Error("MetaMask not installed!"));
         }
 
-        this.provider = new BrowserProvider(window.ethereum);
-        await this.provider.send("eth_requestAccounts", []);
-        this.signer = await this.provider.getSigner();
+        try {
+            this.provider = new BrowserProvider(window.ethereum);
+            await this.provider.send("eth_requestAccounts", []);
+            this.signer = await this.provider.getSigner();
 
-        // Check if the user is on the Linea network
-        await this.checkAndSwitchToLinea();
+            // Check if the user is on the Linea network
+            await this.checkAndSwitchToLinea();
 
-        return this.signer;
+            return this.signer;
+        } catch (error: any) {
+            throw normalizeWeb3Error(error);
+        }
     }
 
     async checkAndSwitchToLinea() {
@@ -153,12 +158,10 @@ class WalletManager {
                 return { transactionHash: receipt.hash, won: false };
             }
         } catch (error: any) {
-            if (error.message && error.message.includes("Ledger Device is busy")) {
+            if (error?.message && error.message.includes("Ledger Device is busy")) {
                 console.error("Ledger device is busy. Please ensure it's unlocked and the correct app is open.");
-            } else {
-                console.error("An error occurred while placing the bet:", error);
             }
-            throw error;
+            throw normalizeWeb3Error(error);
         }
     }
 

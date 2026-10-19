@@ -71,6 +71,47 @@ input.form-element {
     font-weight: bold;
 }
 
+.toast {
+    width: 100%;
+    padding: 10px 12px;
+    margin: 10px 0;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.toast-info {
+    background-color: rgba(8, 222, 253, 0.15);
+    border: 1px solid #08DEFD;
+    color: #08DEFD;
+}
+
+.toast-error {
+    background-color: rgba(254, 81, 101, 0.15);
+    border: 1px solid #fe5165;
+    color: #fe5165;
+}
+
+.toast-success {
+    background-color: rgba(49, 160, 118, 0.15);
+    border: 1px solid #31a076;
+    color: #31a076;
+}
+
+.toast-close-btn {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 0 0 10px;
+    line-height: 1;
+}
+
 @media (min-width: 600px) {
     #app {
         flex-direction: row;
