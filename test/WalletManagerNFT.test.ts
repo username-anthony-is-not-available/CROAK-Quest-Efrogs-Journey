@@ -28,6 +28,46 @@ describe("WalletManager NFT Methods", function () {
         global.fetch = originalFetch;
     });
 
+    describe("initializeContracts", function () {
+        it("should initialize all 3 contract instances and store nftAddress when 3 parameters are provided", async function () {
+            const bettingAddr = ethers.Wallet.createRandom().address;
+            const tokenAddr = ethers.Wallet.createRandom().address;
+            const nftAddr = await nftContract.getAddress();
+
+            walletManager.initializeContracts(bettingAddr, tokenAddr, nftAddr);
+
+            expect(walletManager.croakQuestEfrogsJourney).to.not.be.null;
+            expect(walletManager.token).to.not.be.null;
+            expect(walletManager.efrogsNFT).to.not.be.null;
+            expect(walletManager.nftContract).to.not.be.null;
+            expect(walletManager.nftAddress).to.equal(nftAddr);
+            expect(await walletManager.efrogsNFT?.getAddress()).to.equal(nftAddr);
+            expect(await walletManager.nftContract?.getAddress()).to.equal(nftAddr);
+        });
+
+        it("should initialize core contracts without error when optional NFT address is omitted", async function () {
+            const bettingAddr = ethers.Wallet.createRandom().address;
+            const tokenAddr = ethers.Wallet.createRandom().address;
+
+            walletManager.initializeContracts(bettingAddr, tokenAddr);
+
+            expect(walletManager.croakQuestEfrogsJourney).to.not.be.null;
+            expect(walletManager.token).to.not.be.null;
+            expect(walletManager.efrogsNFT).to.be.null;
+            expect(walletManager.nftContract).to.be.null;
+            expect(walletManager.nftAddress).to.be.null;
+        });
+
+        it("should throw an error when signer is not set", function () {
+            walletManager.signer = null;
+            const bettingAddr = ethers.Wallet.createRandom().address;
+            const tokenAddr = ethers.Wallet.createRandom().address;
+
+            expect(() => walletManager.initializeContracts(bettingAddr, tokenAddr))
+                .to.throw("Wallet not connected");
+        });
+    });
+
     describe("getFirstNFTId", function () {
         it("should return the correct token ID when wallet owns an NFT", async function () {
             const contractAddress = await nftContract.getAddress();
