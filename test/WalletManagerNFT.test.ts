@@ -1,10 +1,3 @@
-if (typeof globalThis.HTMLVideoElement === 'undefined') {
-    (globalThis as any).HTMLVideoElement = class HTMLVideoElement {};
-}
-if (typeof globalThis.window === 'undefined') {
-    (globalThis as any).window = globalThis;
-}
-
 import chai from "chai";
 import hre from "hardhat";
 import WalletManager from "../src/web3/WalletManager.ts";
