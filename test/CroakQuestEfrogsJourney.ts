@@ -333,4 +333,96 @@ describe("CroakQuestEfrogsJourney", function () {
             await expect(croakQuest.connect(player1).bet(betAmount)).to.not.be.reverted;
         });
     });
+
+    describe("SafeERC20 Security", function () {
+        let failingToken: any;
+        let croakQuestFailing: any;
+
+        beforeEach(async function () {
+            // Deploy Failing Token contract
+            const failingTokenFactory = await ethers.getContractFactory("MockFailingERC20");
+            failingToken = await failingTokenFactory.deploy("Mock Failing Token", "MFTK");
+
+            // Deploy CroakQuestEfrogsJourney with failing token
+            const croakQuestFactory = await ethers.getContractFactory("CroakQuestEfrogsJourney");
+            croakQuestFailing = await croakQuestFactory.deploy(
+                await failingToken.getAddress(),
+                await nft.getAddress(),
+                await vrfCoordinator.getAddress(),
+                subId,
+                KEY_HASH,
+                CALLBACK_GAS_LIMIT
+            );
+
+            // Add consumer to VRF
+            await vrfCoordinator.addConsumer(subId, await croakQuestFailing.getAddress());
+
+            // Mint tokens and approve spending
+            await failingToken.mint(player1.address, initialFunds);
+            await failingToken.connect(player1).approve(await croakQuestFailing.getAddress(), initialFunds);
+
+            await failingToken.mint(owner.address, initialFunds);
+            await failingToken.connect(owner).approve(await croakQuestFailing.getAddress(), initialFunds);
+            await croakQuestFailing.connect(owner).addFunds(initialFunds);
+        });
+
+        it("Should revert bet when transferFrom returns false", async function () {
+            await failingToken.setFailTransferFrom(true);
+            await expect(croakQuestFailing.connect(player1).bet(betAmount))
+                .to.be.revertedWithCustomError(croakQuestFailing, "SafeERC20FailedOperation")
+                .withArgs(await failingToken.getAddress());
+        });
+
+        it("Should revert addFunds when transferFrom returns false", async function () {
+            await failingToken.setFailTransferFrom(true);
+            await expect(croakQuestFailing.connect(owner).addFunds(betAmount))
+                .to.be.revertedWithCustomError(croakQuestFailing, "SafeERC20FailedOperation")
+                .withArgs(await failingToken.getAddress());
+        });
+
+        it("Should revert fulfillRandomWords payout when token transfer returns false", async function () {
+            await croakQuestFailing.connect(owner).setWinChance(99);
+
+            const tx = await croakQuestFailing.connect(player1).bet(betAmount);
+            const receipt = await tx.wait();
+            const decodedRequested = croakQuestFailing.interface.parseLog({
+                topics: [...receipt!.logs.find(l => {
+                    try { return croakQuestFailing.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested' } catch { return false }
+                })!.topics],
+                data: receipt!.logs.find(l => {
+                    try { return croakQuestFailing.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested' } catch { return false }
+                })!.data
+            });
+            const requestId = decodedRequested!.args[0];
+
+            await failingToken.setFailTransfer(true);
+
+            // Direct call from coordinator reverts with SafeERC20FailedOperation
+            const vrfAddress = await vrfCoordinator.getAddress();
+            await ethers.provider.send("hardhat_setBalance", [vrfAddress, "0x1000000000000000000"]);
+            const coordinatorSigner = await ethers.getImpersonatedSigner(vrfAddress);
+
+            await expect(
+                croakQuestFailing.connect(coordinatorSigner).rawFulfillRandomWords(requestId, [0])
+            ).to.be.revertedWithCustomError(croakQuestFailing, "SafeERC20FailedOperation")
+                .withArgs(await failingToken.getAddress());
+
+            // VRF Coordinator fulfillRandomWordsWithOverride captures failure (success = false)
+            const txFulfill = await vrfCoordinator.fulfillRandomWordsWithOverride(requestId, await croakQuestFailing.getAddress(), [0]);
+            const receiptFulfill = await txFulfill.wait();
+            const fulfilledEvent = receiptFulfill!.logs.find((l: any) => {
+                try { return vrfCoordinator.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'RandomWordsFulfilled' } catch { return false }
+            });
+            const decodedFulfilled = vrfCoordinator.interface.parseLog({ topics: [...fulfilledEvent.topics], data: fulfilledEvent.data });
+            expect(decodedFulfilled!.args.success).to.be.false;
+        });
+
+        it("Should revert removeFunds when transfer returns false", async function () {
+            await failingToken.setFailTransfer(true);
+            const withdrawAmount = ethers.parseEther("100");
+            await expect(croakQuestFailing.connect(owner).removeFunds(withdrawAmount))
+                .to.be.revertedWithCustomError(croakQuestFailing, "SafeERC20FailedOperation")
+                .withArgs(await failingToken.getAddress());
+        });
+    });
 });
