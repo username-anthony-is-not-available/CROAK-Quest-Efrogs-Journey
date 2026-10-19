@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 
-contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard {
+contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard, Pausable {
     IERC20 public immutable token;
     IERC721 public immutable nftCollection;
 
@@ -90,7 +91,7 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
         return (accumulatedFunds * maxBetPercentage) / 100;
     }
 
-    function bet(uint256 _amount) external nonReentrant {
+    function bet(uint256 _amount) external whenNotPaused nonReentrant {
         if (_amount == 0) revert InvalidAmount();
         uint256 maxBet = maxBetAmount();
         if (_amount > maxBet) revert BetExceedsMaxLiquidity(_amount, maxBet);
@@ -177,6 +178,14 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard 
         if (_newPercentage == 0 || _newPercentage > 25) revert InvalidMaxBetPercentage();
         maxBetPercentage = _newPercentage;
         emit MaxBetPercentageUpdated(_newPercentage);
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
 }

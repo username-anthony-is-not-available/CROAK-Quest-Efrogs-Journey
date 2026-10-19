@@ -31,6 +31,16 @@ To ensure contract solvency and prevent payout transaction reverts due to insuff
 - **Default Cap**: 5% of accumulated house funds (configurable by contract owner between 1% and 25%).
 - **Dynamic Scaling**: The maximum bet limit scales automatically as liquidity is added or accumulated through gameplay. Any attempt to bet beyond the dynamic limit reverts on-chain with `BetExceedsMaxLiquidity(amount, maxBet)`.
 
+## Emergency Stop Mechanism (Pausable)
+
+To protect user funds and contract liquidity in an emergency, the contract incorporates OpenZeppelin's standardized `Pausable` module:
+
+- **Betting Guard**: The `bet(uint256)` function is protected with the `whenNotPaused` modifier. If the contract is paused, calling `bet` reverts with `EnforcedPause()`.
+- **Administrative Functions**:
+  - `pause()`: Callable only by the contract owner (`onlyOwner`) to freeze betting during suspected exploits, maintenance, or migration periods. Emits a `Paused(address account)` event.
+  - `unpause()`: Callable only by the contract owner (`onlyOwner`) to resume normal betting operations. Emits an `Unpaused(address account)` event.
+- **Withdrawal Safety**: Administrative functions such as `removeFunds(uint256)` remain unpaused so owner recovery capabilities and house fund extractions are never locked even during an active pause state.
+
 ## Technology Stack
 
 - Phaser 3
