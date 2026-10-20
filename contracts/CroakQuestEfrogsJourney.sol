@@ -121,7 +121,7 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard,
         emit BetRequested(requestId, msg.sender, _amount);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override nonReentrant {
         BetRequest storage request = s_requests[requestId];
         if (request.player == address(0)) return;
 
@@ -136,8 +136,8 @@ contract CroakQuestEfrogsJourney is Ownable, VRFConsumerBaseV2, ReentrancyGuard,
                 winnings += (winnings * nftBonusPercentage / 100);
             }
             if (accumulatedFunds >= (winnings - amount)) {
-                token.safeTransfer(request.player, winnings);
                 accumulatedFunds -= (winnings - amount);
+                token.safeTransfer(request.player, winnings);
             } else {
                 // Should not happen if house is well funded, but as a fallback, refund the bet
                 token.safeTransfer(request.player, amount);
