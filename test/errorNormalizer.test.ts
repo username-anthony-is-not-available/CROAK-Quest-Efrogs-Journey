@@ -25,9 +25,16 @@ describe("Web3 Error Normalizer", function () {
             expect(isUserRejectionError(err)).to.be.true;
         });
 
-        it("should detect rejection message string without code", function () {
-            const err = { message: "User denied transaction signature." };
-            expect(isUserRejectionError(err)).to.be.true;
+        it("should detect code 5000 and USER_REJECTED as user rejection", function () {
+            expect(isUserRejectionError({ code: 5000 })).to.be.true;
+            expect(isUserRejectionError({ code: "USER_REJECTED" })).to.be.true;
+        });
+
+        it("should detect rejection message strings without code", function () {
+            expect(isUserRejectionError({ message: "User denied transaction signature." })).to.be.true;
+            expect(isUserRejectionError({ message: "Transaction was rejected by user" })).to.be.true;
+            expect(isUserRejectionError({ message: "Declined by user" })).to.be.true;
+            expect(isUserRejectionError({ message: "Signature rejected" })).to.be.true;
         });
 
         it("should return false for generic non-rejection errors", function () {

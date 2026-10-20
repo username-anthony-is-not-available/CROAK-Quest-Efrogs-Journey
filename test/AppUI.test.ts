@@ -83,4 +83,38 @@ describe("App UI Double-Betting Prevention & Lock State", function () {
         await failedBetPromise;
         expect(isButtonDisabled(state)).to.be.false;
     });
+
+    it("should handle user rejection code 4001 and reset UI state with notification message", async function () {
+        let isTxProcessing = false;
+        let toastMessage = "";
+        let toastType = "";
+
+        const state: UIState = {
+            isConnected: true,
+            isGameInProgress: false,
+            get isTxProcessing() { return isTxProcessing; }
+        };
+
+        const handleWalletAction = async () => {
+            isTxProcessing = true;
+            try {
+                const error: any = new Error("User rejected the request.");
+                error.code = 4001;
+                throw error;
+            } catch (err: any) {
+                const { normalizeWeb3Error } = await import("../src/web3/errorNormalizer.ts");
+                const normalized = normalizeWeb3Error(err);
+                toastType = normalized.isUserRejection ? "info" : "error";
+                toastMessage = normalized.message;
+            } finally {
+                isTxProcessing = false;
+            }
+        };
+
+        await handleWalletAction();
+
+        expect(isButtonDisabled(state)).to.be.false;
+        expect(toastType).to.equal("info");
+        expect(toastMessage).to.equal("Transaction cancelled by user");
+    });
 });

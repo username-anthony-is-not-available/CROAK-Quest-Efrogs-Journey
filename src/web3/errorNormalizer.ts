@@ -10,7 +10,12 @@ export function isUserRejectionError(error: any): boolean {
     if (!error) return false;
 
     const rawCode = error.code ?? error.info?.error?.code ?? error.cause?.code;
-    if (rawCode === 4001 || rawCode === 'ACTION_REJECTED') {
+    if (
+        rawCode === 4001 ||
+        rawCode === 'ACTION_REJECTED' ||
+        rawCode === 5000 ||
+        rawCode === 'USER_REJECTED'
+    ) {
         return true;
     }
 
@@ -21,7 +26,10 @@ export function isUserRejectionError(error: any): boolean {
         msg.includes('action_rejected') ||
         msg.includes('user cancelled') ||
         msg.includes('user canceled') ||
-        msg.includes('rejected by user')
+        msg.includes('rejected by user') ||
+        msg.includes('transaction was rejected') ||
+        msg.includes('declined by user') ||
+        msg.includes('signature rejected')
     ) {
         return true;
     }
