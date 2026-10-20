@@ -29,6 +29,7 @@
         "copy-dist-to-build": "xcopy /s /e /i dist build",
         "build-and-copy": "npm run clean-build && npm run build && npm run copy-dist-to-build",
         "test": "npx hardhat test test/CroakQuestEfrogsJourney.ts test/errorNormalizer.test.ts test/WalletManagerNFT.test.ts test/WalletManagerRecovery.test.ts test/AppUI.test.ts test/LineaFork.test.ts",
+        "test:e2e": "playwright test",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
@@ -42,6 +43,7 @@
         "@nomicfoundation/hardhat-chai-matchers": "^2.1.2",
         "@nomicfoundation/hardhat-ethers": "^3.1.3",
         "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+        "@playwright/test": "^1.64.1",
         "@typechain/ethers-v6": "^0.5.1",
         "@typechain/hardhat": "^9.1.0",
         "@types/chai": "4.3.20",

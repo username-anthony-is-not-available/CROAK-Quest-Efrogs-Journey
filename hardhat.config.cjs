@@ -24,7 +24,8 @@ const config = {
       },
       forking: {
         url: process.env.LINEA_MAINNET_RPC_URL || "https://rpc.linea.build",
-        enabled: process.env.FORK !== "false"
+        enabled: process.env.FORK !== "false",
+        blockNumber: 32300000
       }
     },
   }
