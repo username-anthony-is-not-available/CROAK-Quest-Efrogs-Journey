@@ -68,6 +68,36 @@ describe("WalletManager NFT Methods", function () {
         });
     });
 
+    describe("checkAndSwitchToLinea rejection handling", function () {
+        it("should detect and normalize user rejection error (code 4001) during network switch", async function () {
+            walletManager.provider = {
+                getNetwork: async () => ({ chainId: 1n })
+            } as any;
+
+            const fakeEthereum = {
+                request: async ({ method }: { method: string }) => {
+                    if (method === 'wallet_switchEthereumChain') {
+                        const err: any = new Error("User rejected the request.");
+                        err.code = 4001;
+                        throw err;
+                    }
+                }
+            };
+            (global as any).window = { ethereum: fakeEthereum };
+
+            try {
+                await walletManager.checkAndSwitchToLinea();
+                expect.fail("Should have thrown error");
+            } catch (error: any) {
+                expect(error.isUserRejection).to.be.true;
+                expect(error.code).to.equal("USER_REJECTED");
+                expect(error.message).to.equal("Transaction cancelled by user");
+            } finally {
+                delete (global as any).window;
+            }
+        });
+    });
+
     describe("getFirstNFTId", function () {
         it("should return the correct token ID when wallet owns an NFT", async function () {
             const contractAddress = await nftContract.getAddress();

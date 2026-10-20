@@ -5,7 +5,7 @@ import CroakQuestEfrogsJourneyABI from './CroakQuestEfrogsJourneyABI.json' with 
 import IERC20_ABI from './IERC20_ABI.json' with { type: 'json' };
 import IERC721_ABI from './IERC721_ABI.json' with { type: 'json' };
 import IERC721Enumerable_ABI from './IERC721Enumerable_ABI.json' with { type: 'json' };
-import { normalizeWeb3Error } from './errorNormalizer.ts';
+import { normalizeWeb3Error, isUserRejectionError } from './errorNormalizer.ts';
 
 const LINEA_RPC_URLS = [
     'https://rpc.linea.build',
@@ -71,6 +71,9 @@ class WalletManager {
                     params: [{ chainId: this.lineaChainId }],
                 });
             } catch (switchError: any) {
+                if (isUserRejectionError(switchError)) {
+                    throw normalizeWeb3Error(switchError);
+                }
                 // This error code indicates that the chain has not been added to MetaMask.
                 if (switchError.code === 4902) {
                     try {
@@ -88,11 +91,14 @@ class WalletManager {
                                 blockExplorerUrls: ['https://lineascan.build']
                             }],
                         });
-                    } catch (addError) {
-                        throw new Error("Failed to add Linea network");
+                    } catch (addError: any) {
+                        if (isUserRejectionError(addError)) {
+                            throw normalizeWeb3Error(addError);
+                        }
+                        throw normalizeWeb3Error(new Error("Failed to add Linea network"));
                     }
                 } else {
-                    throw new Error("Failed to switch to Linea network");
+                    throw normalizeWeb3Error(new Error("Failed to switch to Linea network"));
                 }
             }
 
@@ -299,31 +305,43 @@ class WalletManager {
     }
 
     async getFirstNFTId(contractAddress: string) {
-        if (!this.signer) throw new Error("Wallet not connected");
-        const contract = new ethers.Contract(contractAddress, IERC721_ABI, this.readProvider);
-        const walletAddress = await this.signer.getAddress();
-        const balance = await contract.balanceOf(walletAddress);
-        if (balance !== 0n) {
-            return await contract.tokenOfOwnerByIndex(walletAddress, 0);
-        } else {
-            throw new Error('No NFTs found in the wallet');
+        if (!this.signer) throw normalizeWeb3Error(new Error("Wallet not connected"));
+        try {
+            const contract = new ethers.Contract(contractAddress, IERC721_ABI, this.readProvider);
+            const walletAddress = await this.signer.getAddress();
+            const balance = await contract.balanceOf(walletAddress);
+            if (balance !== 0n) {
+                return await contract.tokenOfOwnerByIndex(walletAddress, 0);
+            } else {
+                throw new Error('No NFTs found in the wallet');
+            }
+        } catch (error: any) {
+            throw normalizeWeb3Error(error);
         }
     }
 
     async getTokenBalance(walletAddress: string) {
         if (!this.token) {
-            throw new Error("Token contract not initialized");
+            throw normalizeWeb3Error(new Error("Token contract not initialized"));
         }
-        const contract = this.token.connect(this.readProvider) as MockERC20;
-        return await contract.balanceOf(walletAddress);
+        try {
+            const contract = this.token.connect(this.readProvider) as MockERC20;
+            return await contract.balanceOf(walletAddress);
+        } catch (error: any) {
+            throw normalizeWeb3Error(error);
+        }
     }
 
     async getTokenAllowance(owner: string, spender: string) {
         if (!this.token) {
-            throw new Error("Token contract not initialized");
+            throw normalizeWeb3Error(new Error("Token contract not initialized"));
         }
-        const contract = this.token.connect(this.readProvider) as MockERC20;
-        return await contract.allowance(owner, spender);
+        try {
+            const contract = this.token.connect(this.readProvider) as MockERC20;
+            return await contract.allowance(owner, spender);
+        } catch (error: any) {
+            throw normalizeWeb3Error(error);
+        }
     }
 
     async getNFTContractData(contractAddress?: string) {
@@ -338,14 +356,18 @@ class WalletManager {
     }
 
     async getNFTMetadata(tokenId: bigint | number | string, contractAddress?: string) {
-        const contract = await this.getNFTContractData(contractAddress);
-        const tokenURI: string = await contract.tokenURI(tokenId);
-        const url = tokenURI.startsWith('ipfs://')
-            ? tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/')
-            : tokenURI;
-        const response = await fetch(url);
-        const metadata = await response.json();
-        return metadata;
+        try {
+            const contract = await this.getNFTContractData(contractAddress);
+            const tokenURI: string = await contract.tokenURI(tokenId);
+            const url = tokenURI.startsWith('ipfs://')
+                ? tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/')
+                : tokenURI;
+            const response = await fetch(url);
+            const metadata = await response.json();
+            return metadata;
+        } catch (error: any) {
+            throw normalizeWeb3Error(error);
+        }
     }
 
     async getBodyBaseProperty(contractAddress: string) {
