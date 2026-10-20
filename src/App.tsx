@@ -92,11 +92,42 @@ function App() {
 
     // References to the PhaserGame component (game and scene are exposed)
     const phaserRef = useRef<IPhaserGameRef>(null);
+    const pendingRecoveryResultRef = useRef<{ won: boolean } | null>(null);
+
+    const handlePendingTxRecovery = useCallback((recovered: { won: boolean; amount?: string }) => {
+        setToast({
+            type: recovered.won ? 'success' : 'info',
+            message: `Recovered transaction! Bet result: ${recovered.won ? 'WON' : 'LOST'}${recovered.amount ? ` (${recovered.amount} $CROAK)` : ''}.`
+        });
+
+        const scene = phaserRef.current?.scene;
+        if (scene) {
+            if (scene.scene.key !== 'Game') {
+                scene.changeScene(recovered.won, efrogsNFTBodyBase, false);
+            } else {
+                scene.resetGame(recovered.won, efrogsNFTBodyBase, false);
+            }
+        } else {
+            pendingRecoveryResultRef.current = { won: recovered.won };
+        }
+    }, [efrogsNFTBodyBase]);
 
     // Event emitted from the PhaserGame component
     const currentScene = useCallback((sceneKey: string) => {
         setIsGameInProgress(sceneKey === 'Game');
-    }, []);
+        if (pendingRecoveryResultRef.current) {
+            const result = pendingRecoveryResultRef.current;
+            pendingRecoveryResultRef.current = null;
+            const scene = phaserRef.current?.scene;
+            if (scene) {
+                if (scene.scene.key !== 'Game') {
+                    scene.changeScene(result.won, efrogsNFTBodyBase, false);
+                } else {
+                    scene.resetGame(result.won, efrogsNFTBodyBase, false);
+                }
+            }
+        }
+    }, [efrogsNFTBodyBase]);
 
     const gameOver = useCallback(() => {
         setIsGameInProgress(false);
@@ -123,16 +154,11 @@ function App() {
     }, []);
 
     useEffect(() => {
-        if (!isConnected) return;
-
         const checkPendingTx = async () => {
             try {
                 const recovered = await walletManager.recoverPendingTransaction();
                 if (recovered) {
-                    setToast({
-                        type: recovered.won ? 'success' : 'info',
-                        message: `Recovered transaction! Bet result: ${recovered.won ? 'WON' : 'LOST'}${recovered.amount ? ` (${recovered.amount} $CROAK)` : ''}.`
-                    });
+                    handlePendingTxRecovery(recovered);
                 }
             } catch (error) {
                 console.error("Error checking pending transaction:", error);
@@ -140,7 +166,7 @@ function App() {
         };
 
         checkPendingTx();
-    }, [isConnected]);
+    }, [isConnected, handlePendingTxRecovery]);
 
     return (
         <div id="app">

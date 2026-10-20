@@ -192,6 +192,63 @@ describe("WalletManager Transaction Recovery", function () {
             expect(walletManager.getPendingTransaction()).to.be.null;
             expect(eventEmitted).to.be.true;
         });
+
+        it("should recover outcome for a lost bet transaction", async function () {
+            await token.connect(player1).approve(await croakQuest.getAddress(), ethers.parseEther("10"));
+
+            // Set win chance to 1% to guarantee loss when random word is 99
+            await croakQuest.connect(owner).setWinChance(1);
+
+            const tx = await croakQuest.connect(player1).bet(ethers.parseEther("10"));
+            const receipt = await tx.wait();
+
+            const betRequestedEvent = receipt.logs.find((l: any) => {
+                try { return croakQuest.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested'; } catch { return false; }
+            });
+            const decodedReq = croakQuest.interface.parseLog({ topics: [...betRequestedEvent.topics], data: betRequestedEvent.data });
+            const requestId = decodedReq!.args[0];
+
+            const txFulfill = await vrfCoordinator.fulfillRandomWordsWithOverride(requestId, await croakQuest.getAddress(), [99]);
+            const receiptFulfill = await txFulfill.wait();
+
+            walletManager.savePendingTransaction(receiptFulfill.hash, 10);
+
+            const recovered = await walletManager.recoverPendingTransaction();
+
+            expect(recovered).to.not.be.null;
+            expect(recovered?.recovered).to.be.true;
+            expect(recovered?.won).to.be.false;
+            expect(walletManager.getPendingTransaction()).to.be.null;
+        });
+
+        it("should recover pending transaction using readProvider prior to wallet connection", async function () {
+            await token.connect(player1).approve(await croakQuest.getAddress(), ethers.parseEther("10"));
+            await croakQuest.connect(owner).setWinChance(99);
+
+            const tx = await croakQuest.connect(player1).bet(ethers.parseEther("10"));
+            const receipt = await tx.wait();
+
+            const betRequestedEvent = receipt.logs.find((l: any) => {
+                try { return croakQuest.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested'; } catch { return false; }
+            });
+            const decodedReq = croakQuest.interface.parseLog({ topics: [...betRequestedEvent.topics], data: betRequestedEvent.data });
+            const requestId = decodedReq!.args[0];
+
+            const txFulfill = await vrfCoordinator.fulfillRandomWordsWithOverride(requestId, await croakQuest.getAddress(), [0]);
+            const receiptFulfill = await txFulfill.wait();
+
+            // Create a fresh uninitialized WalletManager instance simulating page init before wallet connection
+            const uninitializedManager = new WalletManager();
+            uninitializedManager.readProvider = ethers.provider as any;
+            uninitializedManager.savePendingTransaction(receiptFulfill.hash, 10);
+
+            const recovered = await uninitializedManager.recoverPendingTransaction();
+
+            expect(recovered).to.not.be.null;
+            expect(recovered?.recovered).to.be.true;
+            expect(recovered?.won).to.be.true;
+            expect(uninitializedManager.getPendingTransaction()).to.be.null;
+        });
     });
 
     describe("placeBet storage lifecycle", function () {
