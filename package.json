@@ -28,7 +28,7 @@
         "clean-build": "rimraf build",
         "copy-dist-to-build": "xcopy /s /e /i dist build",
         "build-and-copy": "npm run clean-build && npm run build && npm run copy-dist-to-build",
-        "test": "npx hardhat test test/CroakQuestEfrogsJourney.ts test/errorNormalizer.test.ts test/WalletManagerNFT.test.ts test/WalletManagerRecovery.test.ts",
+        "test": "npx hardhat test test/CroakQuestEfrogsJourney.ts test/errorNormalizer.test.ts test/WalletManagerNFT.test.ts test/WalletManagerRecovery.test.ts test/AppUI.test.ts",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {

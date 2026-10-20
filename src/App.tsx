@@ -19,6 +19,7 @@ function App() {
     const [betAmount, setBetAmount] = useState('');
     const [isConnected, setIsConnected] = useState(false);
     const [isGameInProgress, setIsGameInProgress] = useState(false);
+    const [isTxProcessing, setIsTxProcessing] = useState(false);
     const [validationMessage, setValidationMessage] = useState('');
     const [efrogsNFTBodyBase, setEfrogsNFTBodyBase] = useState('');
     const [toast, setToast] = useState<NotificationToast | null>(null);
@@ -50,6 +51,7 @@ function App() {
         setValidationMessage('');
         setToast(null);
         setIsGameInProgress(true);
+        setIsTxProcessing(true);
 
         try {
             const onTxSent = () => {
@@ -87,6 +89,8 @@ function App() {
                 type: normalized.isUserRejection ? 'info' : 'error',
                 message: normalized.message || "Failed to place a bet."
             });
+        } finally {
+            setIsTxProcessing(false);
         }
     };
 
@@ -192,7 +196,7 @@ function App() {
                     placeholder="Enter $CROAK Amount"
                     value={betAmount}
                     onChange={(e) => setBetAmount(e.target.value)}
-                    disabled={!isConnected || isGameInProgress}
+                    disabled={!isConnected || isGameInProgress || isTxProcessing}
                 />
                 {validationMessage && <p style={{ color: 'red' }}>{validationMessage}</p>}
                 {toast && (
@@ -201,8 +205,15 @@ function App() {
                         <button type="button" className="toast-close-btn" onClick={() => setToast(null)} aria-label="Close notification">&times;</button>
                     </div>
                 )}
-                <button className="form-element" onClick={changeScene} disabled={!isConnected || isGameInProgress}>
-                    Play Now
+                <button className="form-element" onClick={changeScene} disabled={!isConnected || isGameInProgress || isTxProcessing}>
+                    {isTxProcessing ? (
+                        <span className="btn-loading-container">
+                            <span className="spinner" aria-hidden="true"></span>
+                            Processing...
+                        </span>
+                    ) : (
+                        "Play Now"
+                    )}
                 </button>
             </div>
         </div>
