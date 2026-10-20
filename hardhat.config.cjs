@@ -14,7 +14,18 @@ const config = {
   },
   networks: {
     hardhat: {
-      chainId: 1337
+      chainId: 59144,
+      chains: {
+        59144: {
+          hardforkHistory: {
+            cancun: 0
+          }
+        }
+      },
+      forking: {
+        url: process.env.LINEA_MAINNET_RPC_URL || "https://rpc.linea.build",
+        enabled: process.env.FORK !== "false"
+      }
     },
   }
 };
