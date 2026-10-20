@@ -334,6 +334,64 @@ describe("CroakQuestEfrogsJourney", function () {
         });
     });
 
+    describe("Reentrancy Guard & Checks-Effects-Interactions Security", function () {
+        let reentrantToken: any;
+        let croakQuestReentrant: any;
+
+        beforeEach(async function () {
+            const reentrantTokenFactory = await ethers.getContractFactory("ReentrantERC20");
+            reentrantToken = await reentrantTokenFactory.deploy("Reentrant Token", "RETK");
+
+            const croakQuestFactory = await ethers.getContractFactory("CroakQuestEfrogsJourney");
+            croakQuestReentrant = await croakQuestFactory.deploy(
+                await reentrantToken.getAddress(),
+                await nft.getAddress(),
+                await vrfCoordinator.getAddress(),
+                subId,
+                KEY_HASH,
+                CALLBACK_GAS_LIMIT
+            );
+
+            await vrfCoordinator.addConsumer(subId, await croakQuestReentrant.getAddress());
+            await reentrantToken.setCroakQuestAddress(await croakQuestReentrant.getAddress());
+
+            await reentrantToken.mint(player1.address, initialFunds);
+            await reentrantToken.connect(player1).approve(await croakQuestReentrant.getAddress(), initialFunds);
+
+            await reentrantToken.mint(owner.address, initialFunds);
+            await reentrantToken.connect(owner).approve(await croakQuestReentrant.getAddress(), initialFunds);
+            await croakQuestReentrant.connect(owner).addFunds(initialFunds);
+        });
+
+        it("Should deduct accumulatedFunds before calling token transfer during payout resolution", async function () {
+            await croakQuestReentrant.connect(owner).setWinChance(99);
+
+            const tx = await croakQuestReentrant.connect(player1).bet(betAmount);
+            const receipt = await tx.wait();
+            const decodedRequested = croakQuestReentrant.interface.parseLog({
+                topics: [...receipt!.logs.find(l => {
+                    try { return croakQuestReentrant.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested' } catch { return false }
+                })!.topics],
+                data: receipt!.logs.find(l => {
+                    try { return croakQuestReentrant.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested' } catch { return false }
+                })!.data
+            });
+            const requestId = decodedRequested!.args[0];
+
+            await reentrantToken.setAttemptReentrancy(true);
+
+            const initialFundsBefore = await croakQuestReentrant.accumulatedFunds();
+
+            await vrfCoordinator.fulfillRandomWordsWithOverride(requestId, await croakQuestReentrant.getAddress(), [0]);
+
+            expect(await reentrantToken.reentrancyAttempted()).to.be.true;
+            expect(await reentrantToken.reentrancyFailed()).to.be.true;
+
+            const accumulatedDuringTransfer = await reentrantToken.accumulatedFundsAtTransfer();
+            expect(accumulatedDuringTransfer).to.be.below(initialFundsBefore);
+        });
+    });
+
     describe("SafeERC20 Security", function () {
         let failingToken: any;
         let croakQuestFailing: any;
