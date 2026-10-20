@@ -26,6 +26,8 @@ class WalletManager {
     croakQuestEfrogsJourney: CroakQuestEfrogsJourney | null = null;
     token: MockERC20 | null = null;
     efrogsNFT: MockERC721 | null = null;
+    nftContract: MockERC721 | null = null;
+    nftAddress: string | null = null;
     lineaChainId: string = '0xe708'; // Linea Mainnet Chain ID (59144 in decimal)
     readProvider: ethers.FallbackProvider;
 
@@ -97,13 +99,30 @@ class WalletManager {
         }
     }
 
-    initializeContracts(bettingGameAddress: string, tokenAddress: string, efrogsNFTAddress: string) {
+    /**
+     * Initializes core betting, token, and optional NFT contract instances.
+     * @param bettingGameAddress - Address of the CroakQuestEfrogsJourney contract.
+     * @param tokenAddress - Address of the ERC20 token contract.
+     * @param nftCollectionAddress - Optional address of the NFT collection contract.
+     */
+    initializeContracts(bettingGameAddress: string, tokenAddress: string, nftCollectionAddress: string | null = null) {
         if (!this.signer) {
             throw new Error("Wallet not connected");
         }
         this.croakQuestEfrogsJourney = new ethers.Contract(bettingGameAddress, CroakQuestEfrogsJourneyABI, this.signer) as unknown as CroakQuestEfrogsJourney;
         this.token = new ethers.Contract(tokenAddress, IERC20_ABI, this.signer) as unknown as MockERC20;
-        this.efrogsNFT = new ethers.Contract(efrogsNFTAddress, IERC721_ABI, this.signer) as unknown as MockERC721;
+
+        this.nftAddress = nftCollectionAddress;
+        if (nftCollectionAddress) {
+            const nftInst = new ethers.Contract(nftCollectionAddress, IERC721_ABI, this.signer) as unknown as MockERC721;
+            this.efrogsNFT = nftInst;
+            this.nftContract = nftInst;
+        } else {
+            this.efrogsNFT = null;
+            this.nftContract = null;
+        }
+
+        console.log(`[WalletManager] Contracts initialized with Betting: ${bettingGameAddress}, Token: ${tokenAddress}, NFT: ${nftCollectionAddress}`);
     }
 
     async placeBet(amount: number, onTxSent?: (tx: any) => void) {
@@ -198,10 +217,11 @@ class WalletManager {
         if (contractAddress) {
             return new ethers.Contract(contractAddress, IERC721_ABI, this.readProvider);
         }
-        if (!this.efrogsNFT) {
+        const nftInst = this.efrogsNFT || this.nftContract;
+        if (!nftInst) {
             throw new Error("Contracts not initialized");
         }
-        return this.efrogsNFT.connect(this.readProvider) as MockERC721;
+        return nftInst.connect(this.readProvider) as MockERC721;
     }
 
     async getNFTMetadata(tokenId: bigint | number | string, contractAddress?: string) {
