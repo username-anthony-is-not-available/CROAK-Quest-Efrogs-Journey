@@ -8,6 +8,10 @@ const config = {
       evmVersion: "cancun"
     }
   },
+  typechain: {
+    outDir: "typechain-types",
+    target: "ethers-v6"
+  },
   networks: {
     hardhat: {
       chainId: 1337

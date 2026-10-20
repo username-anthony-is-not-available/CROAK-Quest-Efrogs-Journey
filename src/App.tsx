@@ -122,6 +122,26 @@ function App() {
         };
     }, []);
 
+    useEffect(() => {
+        if (!isConnected) return;
+
+        const checkPendingTx = async () => {
+            try {
+                const recovered = await walletManager.recoverPendingTransaction();
+                if (recovered) {
+                    setToast({
+                        type: recovered.won ? 'success' : 'info',
+                        message: `Recovered transaction! Bet result: ${recovered.won ? 'WON' : 'LOST'}${recovered.amount ? ` (${recovered.amount} $CROAK)` : ''}.`
+                    });
+                }
+            } catch (error) {
+                console.error("Error checking pending transaction:", error);
+            }
+        };
+
+        checkPendingTx();
+    }, [isConnected]);
+
     return (
         <div id="app">
             <PhaserGame ref={phaserRef} currentActiveScene={currentScene} onGameOver={gameOver} />

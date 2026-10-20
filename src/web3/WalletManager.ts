@@ -14,6 +14,9 @@ const LINEA_RPC_URLS = [
     'https://1rpc.io/linea'
 ];
 
+export const PENDING_TX_STORAGE_KEY = 'croak_quest_pending_tx';
+export const PENDING_TX_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 declare global {
     interface Window {
         ethereum: any;
@@ -138,11 +141,14 @@ class WalletManager {
             await approvalTx.wait();
             const betTx = await this.croakQuestEfrogsJourney.bet(parsedAmount);
 
+            this.savePendingTransaction(betTx.hash, amount);
+
             if (onTxSent) {
                 onTxSent(betTx);
             }
 
             const receipt = await betTx.wait();
+            this.clearPendingTransaction();
             if (!receipt) throw new Error("Transaction receipt not found");
 
             // Find the Bet event in the transaction receipt
@@ -182,6 +188,113 @@ class WalletManager {
                 console.error("Ledger device is busy. Please ensure it's unlocked and the correct app is open.");
             }
             throw normalizeWeb3Error(error);
+        }
+    }
+
+    savePendingTransaction(txHash: string, amount: number) {
+        try {
+            if (typeof window === 'undefined' || !window.localStorage) return;
+            const data = {
+                txHash,
+                amount,
+                timestamp: Date.now()
+            };
+            window.localStorage.setItem(PENDING_TX_STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+            console.warn("Failed to save pending transaction to localStorage:", error);
+        }
+    }
+
+    clearPendingTransaction() {
+        try {
+            if (typeof window === 'undefined' || !window.localStorage) return;
+            window.localStorage.removeItem(PENDING_TX_STORAGE_KEY);
+        } catch (error) {
+            console.warn("Failed to clear pending transaction from localStorage:", error);
+        }
+    }
+
+    getPendingTransaction(): { txHash: string; amount: number; timestamp: number } | null {
+        try {
+            if (typeof window === 'undefined' || !window.localStorage) return null;
+            const raw = window.localStorage.getItem(PENDING_TX_STORAGE_KEY);
+            if (!raw) return null;
+
+            const data = JSON.parse(raw);
+            if (!data || !data.txHash || typeof data.timestamp !== 'number') {
+                this.clearPendingTransaction();
+                return null;
+            }
+
+            if (Date.now() - data.timestamp > PENDING_TX_TTL_MS) {
+                console.log("[Recovery] Pending transaction expired (TTL > 30m), clearing.");
+                this.clearPendingTransaction();
+                return null;
+            }
+
+            return data;
+        } catch (error) {
+            this.clearPendingTransaction();
+            return null;
+        }
+    }
+
+    async recoverPendingTransaction() {
+        const pending = this.getPendingTransaction();
+        if (!pending) return null;
+
+        console.log(`[Recovery] Pending transaction found: ${pending.txHash}`);
+
+        const provider = this.provider || this.readProvider;
+        if (!provider) return null;
+
+        try {
+            const receipt = await provider.getTransactionReceipt(pending.txHash);
+            if (!receipt) {
+                return null;
+            }
+
+            this.clearPendingTransaction();
+
+            const contractInterface = this.croakQuestEfrogsJourney?.interface || new ethers.Interface(CroakQuestEfrogsJourneyABI);
+
+            const betEvent = receipt.logs.find(
+                (log: any) => log.topics[0] === ethers.id("Bet(address,uint256,bool,bool)")
+            );
+
+            if (betEvent) {
+                const decodedEvent = contractInterface.parseLog({
+                    topics: [...betEvent.topics],
+                    data: betEvent.data
+                });
+
+                if (decodedEvent) {
+                    const [player, betAmount, won, nftBonus] = decodedEvent.args;
+
+                    EventBus.emit('wallet-balance-changed', player);
+                    if (won) {
+                        EventBus.emit('reward-payout', { player, amount: betAmount });
+                    }
+
+                    return {
+                        transactionHash: receipt.hash,
+                        player,
+                        amount: ethers.formatUnits(betAmount, 18),
+                        won,
+                        nftBonus,
+                        recovered: true
+                    };
+                }
+            }
+
+            return {
+                transactionHash: receipt.hash,
+                won: false,
+                recovered: true
+            };
+        } catch (error) {
+            console.error("Failed to recover pending transaction:", error);
+            return null;
         }
     }
 
