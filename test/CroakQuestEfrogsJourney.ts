@@ -1,5 +1,7 @@
 import chai from "chai";
 import hre from "hardhat";
+import "@nomicfoundation/hardhat-chai-matchers";
+import "@nomicfoundation/hardhat-ethers";
 
 const { expect } = chai;
 const { ethers } = hre;

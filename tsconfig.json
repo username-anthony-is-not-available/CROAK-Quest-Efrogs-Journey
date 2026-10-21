@@ -16,7 +16,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "mocha", "chai"]
+    "types": ["node", "mocha", "chai", "@nomicfoundation/hardhat-ethers", "@nomicfoundation/hardhat-chai-matchers"]
   },
   "include": ["src", "test", "hardhat.config.ts", "typechain-types"],
   "references": [{ "path": "./tsconfig.node.json" }]
