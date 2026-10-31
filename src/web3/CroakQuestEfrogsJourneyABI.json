@@ -2,6 +2,32 @@
     {
         "inputs": [
             {
+                "internalType": "uint256",
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "addFunds",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "bet",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
                 "internalType": "address",
                 "name": "_tokenAddress",
                 "type": "address"
@@ -10,142 +36,31 @@
                 "internalType": "address",
                 "name": "_nftCollectionAddress",
                 "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "_vrfCoordinator",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "_subscriptionId",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bytes32",
-                "name": "_keyHash",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "uint32",
-                "name": "_callbackGasLimit",
-                "type": "uint32"
             }
         ],
         "stateMutability": "nonpayable",
         "type": "constructor"
     },
     {
-        "inputs": [],
-        "name": "AlreadyResolved",
-        "type": "error"
-    },
-    {
         "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "maxBet",
-                "type": "uint256"
-            }
-        ],
-        "name": "BetExceedsMaxLiquidity",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InsufficientAccumulatedFunds",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InsufficientAllowance",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InsufficientBalance",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InvalidAmount",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InvalidMaxBetPercentage",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InvalidWinChance",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InvalidWinPercentage",
-        "type": "error"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "have",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "want",
-                "type": "address"
-            }
-        ],
-        "name": "OnlyCoordinatorCanFulfill",
-        "type": "error"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "have",
-                "type": "address"
-            },
             {
                 "internalType": "address",
                 "name": "owner",
                 "type": "address"
-            },
+            }
+        ],
+        "name": "OwnableInvalidOwner",
+        "type": "error"
+    },
+    {
+        "inputs": [
             {
                 "internalType": "address",
-                "name": "coordinator",
+                "name": "account",
                 "type": "address"
             }
         ],
-        "name": "OnlyOwnerOrCoordinator",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "ReentrancyGuardReentrantCall",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "RequestNotFound",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "TransferFailed",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "ZeroAddress",
+        "name": "OwnableUnauthorizedAccount",
         "type": "error"
     },
     {
@@ -183,88 +98,6 @@
         "anonymous": false,
         "inputs": [
             {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "requestId",
-                "type": "uint256"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "player",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "BetRequested",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "requestId",
-                "type": "uint256"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "player",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "bool",
-                "name": "won",
-                "type": "bool"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "winnings",
-                "type": "uint256"
-            }
-        ],
-        "name": "BetSettled",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": false,
-                "internalType": "uint32",
-                "name": "callbackGasLimit",
-                "type": "uint32"
-            }
-        ],
-        "name": "CallbackGasLimitSet",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": false,
-                "internalType": "address",
-                "name": "vrfCoordinator",
-                "type": "address"
-            }
-        ],
-        "name": "CoordinatorSet",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
                 "indexed": false,
                 "internalType": "uint256",
                 "name": "amount",
@@ -291,60 +124,15 @@
         "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
-                "internalType": "bytes32",
-                "name": "keyHash",
-                "type": "bytes32"
-            }
-        ],
-        "name": "KeyHashSet",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": false,
-                "internalType": "uint8",
-                "name": "newPercentage",
-                "type": "uint8"
-            }
-        ],
-        "name": "MaxBetPercentageUpdated",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
                 "indexed": true,
                 "internalType": "address",
-                "name": "from",
+                "name": "previousOwner",
                 "type": "address"
             },
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "to",
-                "type": "address"
-            }
-        ],
-        "name": "OwnershipTransferRequested",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "from",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "to",
+                "name": "newOwner",
                 "type": "address"
             }
         ],
@@ -352,30 +140,63 @@
         "type": "event"
     },
     {
-        "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
-                "internalType": "uint16",
-                "name": "requestConfirmations",
-                "type": "uint16"
-            }
-        ],
-        "name": "RequestConfirmationsSet",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": false,
                 "internalType": "uint256",
-                "name": "subscriptionId",
+                "name": "_amount",
                 "type": "uint256"
             }
         ],
-        "name": "SubscriptionIdSet",
-        "type": "event"
+        "name": "removeFunds",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "renounceOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint8",
+                "name": "_newChance",
+                "type": "uint8"
+            }
+        ],
+        "name": "setWinChance",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint8",
+                "name": "_newPercentage",
+                "type": "uint8"
+            }
+        ],
+        "name": "setWinPercentage",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "transferOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
         "anonymous": false,
@@ -405,90 +226,12 @@
     },
     {
         "inputs": [],
-        "name": "NUM_WORDS",
-        "outputs": [
-            {
-                "internalType": "uint32",
-                "name": "",
-                "type": "uint32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "acceptOwnership",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [],
         "name": "accumulatedFunds",
         "outputs": [
             {
                 "internalType": "uint256",
                 "name": "",
                 "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "addFunds",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "bet",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "requestId",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "maxBetAmount",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "maxBetPercentage",
-        "outputs": [
-            {
-                "internalType": "uint8",
-                "name": "",
-                "type": "uint8"
             }
         ],
         "stateMutability": "view",
@@ -534,240 +277,6 @@
         "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "requestId",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256[]",
-                "name": "randomWords",
-                "type": "uint256[]"
-            }
-        ],
-        "name": "rawFulfillRandomWords",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "removeFunds",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "s_callbackGasLimit",
-        "outputs": [
-            {
-                "internalType": "uint32",
-                "name": "",
-                "type": "uint32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "s_keyHash",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "name": "s_pendingBets",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "player",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bool",
-                "name": "nftBonus",
-                "type": "bool"
-            },
-            {
-                "internalType": "bool",
-                "name": "resolved",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "s_requestConfirmations",
-        "outputs": [
-            {
-                "internalType": "uint16",
-                "name": "",
-                "type": "uint16"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "s_subscriptionId",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "s_vrfCoordinator",
-        "outputs": [
-            {
-                "internalType": "contract IVRFCoordinatorV2Plus",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint32",
-                "name": "_callbackGasLimit",
-                "type": "uint32"
-            }
-        ],
-        "name": "setCallbackGasLimit",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "_vrfCoordinator",
-                "type": "address"
-            }
-        ],
-        "name": "setCoordinator",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "_keyHash",
-                "type": "bytes32"
-            }
-        ],
-        "name": "setKeyHash",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint8",
-                "name": "_newPercentage",
-                "type": "uint8"
-            }
-        ],
-        "name": "setMaxBetPercentage",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint16",
-                "name": "_requestConfirmations",
-                "type": "uint16"
-            }
-        ],
-        "name": "setRequestConfirmations",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_subscriptionId",
-                "type": "uint256"
-            }
-        ],
-        "name": "setSubscriptionId",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint8",
-                "name": "_newChance",
-                "type": "uint8"
-            }
-        ],
-        "name": "setWinChance",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint8",
-                "name": "_newPercentage",
-                "type": "uint8"
-            }
-        ],
-        "name": "setWinPercentage",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
         "inputs": [],
         "name": "token",
         "outputs": [
@@ -778,19 +287,6 @@
             }
         ],
         "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-            }
-        ],
-        "name": "transferOwnership",
-        "outputs": [],
-        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
