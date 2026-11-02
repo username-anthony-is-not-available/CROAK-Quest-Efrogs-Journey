@@ -2,12 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
+contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable token;
     IERC721 public immutable nftCollection;
 
@@ -37,7 +41,6 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
     error InsufficientBalance();
     error InsufficientAllowance();
     error InsufficientAccumulatedFunds();
-    error TransferFailed();
     error InvalidWinChance();
     error InvalidWinPercentage();
     error InvalidMaxBetPercentage();
@@ -97,14 +100,14 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
         return (accumulatedFunds * maxBetPercentage) / 100;
     }
 
-    function bet(uint256 _amount) external nonReentrant returns (uint256 requestId) {
+    function bet(uint256 _amount) external whenNotPaused nonReentrant returns (uint256 requestId) {
         if (_amount == 0) revert InvalidAmount();
         uint256 maxBet = maxBetAmount();
         if (_amount > maxBet) revert BetExceedsMaxLiquidity(_amount, maxBet);
         if (token.balanceOf(msg.sender) < _amount) revert InsufficientBalance();
         if (token.allowance(msg.sender, address(this)) < _amount) revert InsufficientAllowance();
 
-        if (!token.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
+        token.safeTransferFrom(msg.sender, address(this), _amount);
 
         bool nftBonus = nftCollection.balanceOf(msg.sender) > 0;
 
@@ -148,10 +151,10 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
             }
             if (accumulatedFunds >= (winnings - amount)) {
                 accumulatedFunds -= (winnings - amount);
-                token.transfer(pending.player, winnings);
+                token.safeTransfer(pending.player, winnings);
             } else {
                 // Fallback: refund bet amount
-                token.transfer(pending.player, amount);
+                token.safeTransfer(pending.player, amount);
                 won = false;
                 winnings = amount;
             }
@@ -165,14 +168,14 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
     }
 
     function addFunds(uint256 _amount) external onlyOwner nonReentrant {
-        if (!token.transferFrom(msg.sender, address(this), _amount)) revert TransferFailed();
+        token.safeTransferFrom(msg.sender, address(this), _amount);
         accumulatedFunds += _amount;
         emit FundsAdded(_amount);
     }
 
     function removeFunds(uint256 _amount) external onlyOwner nonReentrant {
         if (_amount > accumulatedFunds) revert InsufficientAccumulatedFunds();
-        if (!token.transfer(msg.sender, _amount)) revert TransferFailed();
+        token.safeTransfer(msg.sender, _amount);
         accumulatedFunds -= _amount;
         emit FundsRemoved(_amount);
     }
@@ -193,5 +196,13 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard {
         if (_newPercentage == 0 || _newPercentage > 25) revert InvalidMaxBetPercentage();
         maxBetPercentage = _newPercentage;
         emit MaxBetPercentageUpdated(_newPercentage);
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }

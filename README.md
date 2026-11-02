@@ -31,6 +31,23 @@ To ensure contract solvency and prevent payout transaction reverts due to insuff
 - **Default Cap**: 5% of accumulated house funds (configurable by contract owner between 1% and 25%).
 - **Dynamic Scaling**: The maximum bet limit scales automatically as liquidity is added or accumulated through gameplay. Any attempt to bet beyond the dynamic limit reverts on-chain with `BetExceedsMaxLiquidity(amount, maxBet)`.
 
+## Disconnection Recovery & Pending Transactions
+
+To protect players on fluctuating networks or mobile devices against lost state during page reloads, pending transaction hashes are stored in `localStorage` under `croak_quest_pending_tx` as soon as broadcast on-chain:
+
+- **Automatic Recovery**: On reconnect or page refresh, `WalletManager.recoverPendingTransaction()` queries `provider.getTransactionReceipt(txHash)`. If mined, it decodes the on-chain `Bet` event, updates player state and balances, and notifies the player with their outcome.
+- **Expiration TTL**: Stale pending transactions automatically expire and clear after 30 minutes to ensure stale entries do not linger indefinitely.
+
+## Emergency Stop Mechanism (Pausable)
+
+To protect user funds and contract liquidity in an emergency, the contract incorporates OpenZeppelin's standardized `Pausable` module:
+
+- **Betting Guard**: The `bet(uint256)` function is protected with the `whenNotPaused` modifier. If the contract is paused, calling `bet` reverts with `EnforcedPause()`.
+- **Administrative Functions**:
+  - `pause()`: Callable only by the contract owner (`onlyOwner`) to freeze betting during suspected exploits, maintenance, or migration periods. Emits a `Paused(address account)` event.
+  - `unpause()`: Callable only by the contract owner (`onlyOwner`) to resume normal betting operations. Emits an `Unpaused(address account)` event.
+- **Withdrawal Safety**: Administrative functions such as `removeFunds(uint256)` remain unpaused so owner recovery capabilities and house fund extractions are never locked even during an active pause state.
+
 ## Chainlink VRF Integration & Two-Step Randomness
 
 To prevent predictable randomness exploits and ensure tamper-proof win outcomes, CROAK Quest integrates Chainlink VRF (Verifiable Random Function) V2 Plus:
