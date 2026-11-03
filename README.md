@@ -62,50 +62,55 @@ This project is built upon the Phaser 3 React Template. For more details, refer 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) (for dependency installation and script execution)
+- [Git](https://git-scm.com/) to clone the repository.
+- [Node.js and npm](https://nodejs.org/) to install dependencies and run the project scripts. `package.json` does not declare a required Node.js version.
 
-### Installation and Usage
+### Install and run locally
 
-1. Clone the repository
-2. Install dependencies:
+From a terminal, clone the repository and install dependencies:
 
-    ```
-    npm install
-    ```
+```sh
+git clone https://github.com/username-anthony-is-not-available/CROAK-Quest-Efrogs-Journey.git
+cd CROAK-Quest-Efrogs-Journey
+npm install
+```
 
-3. Run the development server:
+Start the Vite development server:
 
-    ```
-    npm run dev
-    ```
+```sh
+npm run dev
+```
 
-## Available Commands
+The development server uses port `8080` by default. Open [http://localhost:8080](http://localhost:8080); if the port is already occupied, use the address printed in the terminal.
 
-| Command          | Description                                    |
-| ---------------- | ---------------------------------------------- |
-| `npm install`    | Install project dependencies                   |
-| `npm run dev`    | Launch a development web server                |
-| `npm run build`  | Create a production build in the `dist` folder |
-| `npm run test`   | Run the test suite                             |
-| `npm run deploy` | Build and deploy to GitHub Pages               |
+### Build and verification commands
 
-### For Linux/macOS users
+Run the checks from the repository root after installing dependencies:
 
-Replace the following line in `package.json`:
+| Command | Purpose |
+| --- | --- |
+| `npm run typecheck` | Run TypeScript checking without emitting files. |
+| `npm test` | Run the Hardhat tests listed in `package.json`. |
+| `npm run test:e2e` | Run the Playwright end-to-end tests. |
+| `npm run build` | Create the production Vite bundle in `dist/`. |
+| `npm run clean-build` | Remove the `build/` deployment directory. |
+| `npm run build-and-copy` | Clean `build/`, build into `dist/`, then copy the distribution files into `build/`. |
 
-    ```
-    "copy-dist-to-build": "xcopy /s /e /i dist build",
-    ```
+### Deploy the web app to GitHub Pages
 
-with:
+`npm run deploy` publishes the contents of `build/` using `gh-pages`. npm first runs the `predeploy` script automatically; that script calls `build-and-copy`, which clears the old `build/`, creates the production bundle in `dist/`, and copies it into `build/`. Run this only from a checkout with permission to publish to the repository, because it updates the GitHub Pages deployment.
 
-    ```
-    "copy-dist-to-build": "cp -r dist build",
-    ```
+On Windows, the current `copy-dist-to-build` script uses `xcopy` and `npm run deploy` can be used as written. On Linux and macOS, that script is Windows-specific. Before deploying, replace its value in `package.json` with the platform's `cp` command:
+
+```json
+"copy-dist-to-build": "cp -r dist build"
+```
+
+Then run `npm run deploy`. The command deploys the web app; it does not deploy or modify the smart contract.
 
 ## Screenshot
 
-![screenshot](screenshot.png)
+![CROAK Quest main menu with game controls](main_menu.png)
 
 ## Watch the video
 
