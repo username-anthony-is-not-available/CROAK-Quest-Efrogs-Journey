@@ -84,6 +84,41 @@ describe("App UI Double-Betting Prevention & Lock State", function () {
         expect(isButtonDisabled(state)).to.be.false;
     });
 
+    it("keeps active form-control text at WCAG AA contrast", async function () {
+        const { readFileSync } = await import("node:fs");
+        const { resolve } = await import("node:path");
+        const stylesheet = readFileSync(resolve(process.cwd(), "public/style.css"), "utf8");
+        const activeRule = stylesheet.match(/\.form-element:active\s*\{([^}]*)\}/);
+        const rule = activeRule?.[1];
+        if (!rule) {
+            throw new Error("The active form-control style must be defined.");
+        }
+
+        const foregroundHex = rule.match(/(?:^|;)\s*color\s*:\s*(#[\da-f]{6})/i)?.[1];
+        const backgroundHex = rule.match(/(?:^|;)\s*background-color\s*:\s*(#[\da-f]{6})/i)?.[1];
+        if (!foregroundHex || !backgroundHex) {
+            throw new Error("The active form-control text and background colors must be explicit hex values.");
+        }
+
+        type Rgb = readonly [number, number, number];
+        const toRgb = (hex: string): Rgb => [
+            parseInt(hex.slice(1, 3), 16),
+            parseInt(hex.slice(3, 5), 16),
+            parseInt(hex.slice(5, 7), 16),
+        ];
+        const linearize = (channel: number) => {
+            const value = channel / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        };
+        const luminance = ([red, green, blue]: Rgb) =>
+            0.2126 * linearize(red) + 0.7152 * linearize(green) + 0.0722 * linearize(blue);
+        const foreground = luminance(toRgb(foregroundHex));
+        const background = luminance(toRgb(backgroundHex));
+        const ratio = (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+
+        expect(ratio, "normal-size active-state text must meet WCAG AA 4.5:1").to.be.at.least(4.5);
+    });
+
     it("should handle user rejection code 4001 and reset UI state with notification message", async function () {
         let isTxProcessing = false;
         let toastMessage = "";

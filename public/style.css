@@ -49,6 +49,7 @@ body {
 
 .form-element:active {
     background-color: #08DEFD;
+    color: #111111;
 }
 
 .form-element:disabled {
