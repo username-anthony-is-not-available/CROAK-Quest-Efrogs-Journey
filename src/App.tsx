@@ -193,6 +193,7 @@ function App() {
                 <input
                     type="text"
                     className="form-element"
+                    aria-label="Bet amount in CROAK tokens"
                     placeholder="Enter $CROAK Amount"
                     value={betAmount}
                     onChange={(e) => setBetAmount(e.target.value)}
