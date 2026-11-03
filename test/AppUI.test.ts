@@ -119,6 +119,19 @@ describe("App UI Double-Betting Prevention & Lock State", function () {
         expect(ratio, "normal-size active-state text must meet WCAG AA 4.5:1").to.be.at.least(4.5);
     });
 
+    it("provides a descriptive accessible name for the bet amount input", async function () {
+        const { readFileSync } = await import("node:fs");
+        const { resolve } = await import("node:path");
+        const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+        const betInput = appSource.match(/<input\b[\s\S]*?\/>/)?.[0];
+
+        if (!betInput) {
+            throw new Error("The bet amount input should be present.");
+        }
+
+        expect(betInput).to.include('aria-label="Bet amount in CROAK tokens"');
+    });
+
     it("should handle user rejection code 4001 and reset UI state with notification message", async function () {
         let isTxProcessing = false;
         let toastMessage = "";
