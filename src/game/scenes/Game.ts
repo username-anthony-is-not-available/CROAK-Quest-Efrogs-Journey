@@ -51,6 +51,16 @@ export class Game extends Phaser.Scene {
         super('Game');
     }
 
+    preload() {
+        if (this.textures.exists('splash')) return;
+
+        this.load.setPath('assets');
+        this.load.spritesheet('splash', 'splash.png', {
+            frameWidth: 200,
+            frameHeight: 200
+        });
+    }
+
     init(data: any) {
         this.isGameOver = false;
         this.lilyPadCount = Phaser.Math.Between(5, 10);

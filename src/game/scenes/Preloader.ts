@@ -11,11 +11,6 @@ export class Preloader extends Scene {
         this.load.image('lily_pad', 'lily_pad.png');
         this.load.image('loading_screen', 'loading_screen.jpeg');
         this.load.image('water', 'water.png');
-
-        this.load.spritesheet('splash', 'splash.png', {
-            frameWidth: 200,
-            frameHeight: 200
-        });
     }
 
     create() {
