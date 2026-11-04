@@ -261,6 +261,31 @@ describe("CroakQuestEfrogsJourney", function () {
             // Attacker places bet and tries same-block inspection
             await expect(attacker.attemptSameBlockExploit(betAmount)).to.not.be.reverted;
         });
+
+        it("Should use snapshotted winChance and winPercentage even if owner updates settings during pending bet", async function () {
+            // Player bets when default winChance is 5%
+            const tx = await croakQuest.connect(player1).bet(betAmount);
+            const receipt = await tx.wait();
+            const decodedRequested = croakQuest.interface.parseLog({
+                topics: [...receipt!.logs.find((l: any) => {
+                    try { return croakQuest.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested' } catch { return false }
+                })!.topics],
+                data: receipt!.logs.find((l: any) => {
+                    try { return croakQuest.interface.parseLog({ topics: [...l.topics], data: l.data })?.name === 'BetRequested' } catch { return false }
+                })!.data
+            });
+            const requestId = decodedRequested!.args[0];
+
+            // Owner changes winChance to 99% while bet is in flight
+            await croakQuest.connect(owner).setWinChance(99);
+
+            // Random word 10: with snapshotted winChance (5%), 10 >= 5 => loss
+            const initialAccumulatedFunds = await croakQuest.accumulatedFunds();
+            await vrfCoordinator.fulfillRandomWordsWithOverride(requestId, await croakQuest.getAddress(), [10]);
+
+            const finalAccumulatedFunds = await croakQuest.accumulatedFunds();
+            expect(finalAccumulatedFunds).to.equal(initialAccumulatedFunds + betAmount);
+        });
     });
 
     describe("Dynamic Max Bet Cap & Administrative Settings", function () {

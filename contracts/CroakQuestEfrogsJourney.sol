@@ -33,6 +33,9 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Paus
         uint256 amount;
         bool nftBonus;
         bool resolved;
+        uint8 winChance;
+        uint8 winPercentage;
+        uint8 nftBonusPercentage;
     }
 
     mapping(uint256 => PendingBet) public s_pendingBets;
@@ -126,7 +129,10 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Paus
             player: msg.sender,
             amount: _amount,
             nftBonus: nftBonus,
-            resolved: false
+            resolved: false,
+            winChance: winChance,
+            winPercentage: winPercentage,
+            nftBonusPercentage: nftBonusPercentage
         });
 
         emit BetRequested(requestId, msg.sender, _amount);
@@ -139,15 +145,15 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Paus
 
         pending.resolved = true;
 
-        bool won = (randomWords[0] % 100) < winChance;
+        bool won = (randomWords[0] % 100) < pending.winChance;
         bool nftBonus = pending.nftBonus;
         uint256 amount = pending.amount;
 
         uint256 winnings = amount;
         if (won) {
-            winnings += (accumulatedFunds * winPercentage / 100);
+            winnings += (accumulatedFunds * pending.winPercentage / 100);
             if (nftBonus) {
-                winnings += (winnings * nftBonusPercentage / 100);
+                winnings += (winnings * pending.nftBonusPercentage / 100);
             }
             if (accumulatedFunds >= (winnings - amount)) {
                 accumulatedFunds -= (winnings - amount);

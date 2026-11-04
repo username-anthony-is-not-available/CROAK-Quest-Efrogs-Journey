@@ -18,7 +18,7 @@ contract AttackerContract {
         uint256 requestId = game.bet(amount);
 
         // Attempt to inspect if the bet was resolved in the same block
-        (address player, uint256 betAmount, , bool resolved) = game.s_pendingBets(requestId);
+        (address player, uint256 betAmount, , bool resolved, , , ) = game.s_pendingBets(requestId);
 
         // Bet must NOT be resolved in the same block
         require(!resolved, "Bet should not be resolved in the same block");
