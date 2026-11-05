@@ -185,10 +185,83 @@ class WalletManager {
                     won: won,
                     nftBonus: nftBonus
                 };
-            } else {
-                console.warn("Bet event not found in transaction logs");
-                return { transactionHash: receipt.hash, won: false };
             }
+
+            // Check if BetRequested was emitted (Chainlink VRF decoupled workflow)
+            const betRequestedLog = receipt.logs.find(
+                (log: any) => log.topics[0] === ethers.id("BetRequested(uint256,address,uint256)")
+            );
+
+            if (betRequestedLog) {
+                const decodedReq = this.croakQuestEfrogsJourney.interface.parseLog({
+                    topics: [...betRequestedLog.topics],
+                    data: betRequestedLog.data
+                });
+
+                if (decodedReq) {
+                    const [requestId, player, betAmount] = decodedReq.args;
+                    EventBus.emit('wallet-balance-changed', player);
+                    EventBus.emit('bet-requested', { requestId: requestId.toString(), player, amount: betAmount });
+
+                    // Await VRF fulfillment if coordinator resolves asynchronously
+                    try {
+                        const outcome = await new Promise<any>((resolve) => {
+                            const timer = setTimeout(() => {
+                                resolve({
+                                    transactionHash: receipt.hash,
+                                    requestId: requestId.toString(),
+                                    player,
+                                    amount: ethers.formatUnits(betAmount, 18),
+                                    won: false,
+                                    pending: true
+                                });
+                            }, 5000);
+
+                            const filter = this.croakQuestEfrogsJourney?.filters?.BetSettled?.(requestId);
+                            if (filter && this.croakQuestEfrogsJourney) {
+                                this.croakQuestEfrogsJourney.once(filter, (rId: any, p: any, won: boolean, winnings: any) => {
+                                    clearTimeout(timer);
+                                    EventBus.emit('wallet-balance-changed', p);
+                                    if (won) {
+                                        EventBus.emit('reward-payout', { player: p, amount: winnings });
+                                    }
+                                    resolve({
+                                        transactionHash: receipt.hash,
+                                        requestId: rId.toString(),
+                                        player: p,
+                                        amount: ethers.formatUnits(betAmount, 18),
+                                        won: won,
+                                        winnings: ethers.formatUnits(winnings, 18)
+                                    });
+                                });
+                            } else {
+                                clearTimeout(timer);
+                                resolve({
+                                    transactionHash: receipt.hash,
+                                    requestId: requestId.toString(),
+                                    player,
+                                    amount: ethers.formatUnits(betAmount, 18),
+                                    won: false,
+                                    pending: true
+                                });
+                            }
+                        });
+                        return outcome;
+                    } catch {
+                        return {
+                            transactionHash: receipt.hash,
+                            requestId: requestId.toString(),
+                            player,
+                            amount: ethers.formatUnits(betAmount, 18),
+                            won: false,
+                            pending: true
+                        };
+                    }
+                }
+            }
+
+            console.warn("Bet or BetRequested event not found in transaction logs");
+            return { transactionHash: receipt.hash, won: false };
         } catch (error: any) {
             if (error?.message && error.message.includes("Ledger Device is busy")) {
                 console.error("Ledger device is busy. Please ensure it's unlocked and the correct app is open.");
@@ -267,6 +340,34 @@ class WalletManager {
             const betEvent = receipt.logs.find(
                 (log: any) => log.topics[0] === ethers.id("Bet(address,uint256,bool,bool)")
             );
+            const betSettledEvent = receipt.logs.find(
+                (log: any) => log.topics[0] === ethers.id("BetSettled(uint256,address,bool,uint256)")
+            );
+
+            if (betSettledEvent) {
+                const decodedEvent = contractInterface.parseLog({
+                    topics: [...betSettledEvent.topics],
+                    data: betSettledEvent.data
+                });
+
+                if (decodedEvent) {
+                    const [requestId, player, won, winnings] = decodedEvent.args;
+
+                    EventBus.emit('wallet-balance-changed', player);
+                    if (won) {
+                        EventBus.emit('reward-payout', { player, amount: winnings });
+                    }
+
+                    return {
+                        transactionHash: receipt.hash,
+                        player,
+                        amount: ethers.formatUnits(winnings, 18),
+                        won,
+                        recovered: true,
+                        requestId: requestId.toString()
+                    };
+                }
+            }
 
             if (betEvent) {
                 const decodedEvent = contractInterface.parseLog({
