@@ -50,6 +50,14 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Paus
     error BetExceedsMaxLiquidity(uint256 amount, uint256 maxBet);
     error AlreadyResolved();
     error RequestNotFound();
+    error OwnableUnauthorizedAccount(address account);
+
+    modifier onlyContractOwner() {
+        if (msg.sender != owner()) {
+            revert OwnableUnauthorizedAccount(msg.sender);
+        }
+        _;
+    }
 
     event Bet(address indexed player, uint256 amount, bool won, bool nftBonus);
     event BetRequested(uint256 indexed requestId, address indexed player, uint256 amount);
@@ -79,22 +87,22 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Paus
         s_callbackGasLimit = _callbackGasLimit;
     }
 
-    function setSubscriptionId(uint256 _subscriptionId) external onlyOwner {
+    function setSubscriptionId(uint256 _subscriptionId) external onlyContractOwner {
         s_subscriptionId = _subscriptionId;
         emit SubscriptionIdSet(_subscriptionId);
     }
 
-    function setKeyHash(bytes32 _keyHash) external onlyOwner {
+    function setKeyHash(bytes32 _keyHash) external onlyContractOwner {
         s_keyHash = _keyHash;
         emit KeyHashSet(_keyHash);
     }
 
-    function setCallbackGasLimit(uint32 _callbackGasLimit) external onlyOwner {
+    function setCallbackGasLimit(uint32 _callbackGasLimit) external onlyContractOwner {
         s_callbackGasLimit = _callbackGasLimit;
         emit CallbackGasLimitSet(_callbackGasLimit);
     }
 
-    function setRequestConfirmations(uint16 _requestConfirmations) external onlyOwner {
+    function setRequestConfirmations(uint16 _requestConfirmations) external onlyContractOwner {
         s_requestConfirmations = _requestConfirmations;
         emit RequestConfirmationsSet(_requestConfirmations);
     }
@@ -173,42 +181,42 @@ contract CroakQuestEfrogsJourney is VRFConsumerBaseV2Plus, ReentrancyGuard, Paus
         emit Bet(pending.player, amount, won, nftBonus);
     }
 
-    function addFunds(uint256 _amount) external onlyOwner nonReentrant {
+    function addFunds(uint256 _amount) external onlyContractOwner nonReentrant {
         token.safeTransferFrom(msg.sender, address(this), _amount);
         accumulatedFunds += _amount;
         emit FundsAdded(_amount);
     }
 
-    function removeFunds(uint256 _amount) external onlyOwner nonReentrant {
+    function removeFunds(uint256 _amount) external onlyContractOwner nonReentrant {
         if (_amount > accumulatedFunds) revert InsufficientAccumulatedFunds();
         token.safeTransfer(msg.sender, _amount);
         accumulatedFunds -= _amount;
         emit FundsRemoved(_amount);
     }
 
-    function setWinChance(uint8 _newChance) external onlyOwner {
+    function setWinChance(uint8 _newChance) external onlyContractOwner {
         if (_newChance == 0 || _newChance > 100) revert InvalidWinChance();
         winChance = _newChance;
         emit WinChanceUpdated(_newChance);
     }
 
-    function setWinPercentage(uint8 _newPercentage) external onlyOwner {
+    function setWinPercentage(uint8 _newPercentage) external onlyContractOwner {
         if (_newPercentage == 0 || _newPercentage > 100) revert InvalidWinPercentage();
         winPercentage = _newPercentage;
         emit WinPercentageUpdated(_newPercentage);
     }
 
-    function setMaxBetPercentage(uint8 _newPercentage) external onlyOwner {
+    function setMaxBetPercentage(uint8 _newPercentage) external onlyContractOwner {
         if (_newPercentage == 0 || _newPercentage > 25) revert InvalidMaxBetPercentage();
         maxBetPercentage = _newPercentage;
         emit MaxBetPercentageUpdated(_newPercentage);
     }
 
-    function pause() external onlyOwner {
+    function pause() external onlyContractOwner {
         _pause();
     }
 
-    function unpause() external onlyOwner {
+    function unpause() external onlyContractOwner {
         _unpause();
     }
 }

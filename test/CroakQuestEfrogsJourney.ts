@@ -340,9 +340,9 @@ describe("CroakQuestEfrogsJourney", function () {
         });
 
         it("Should revert when setMaxBetPercentage is called with invalid values or by non-owner", async function () {
-            // Note: VRFConsumerBaseV2Plus inherits from Chainlink ConfirmedOwnerWithProposal, reverting with "Only callable by owner"
             await expect(croakQuest.connect(player1).setMaxBetPercentage(10))
-                .to.be.revertedWith("Only callable by owner");
+                .to.be.revertedWithCustomError(croakQuest, "OwnableUnauthorizedAccount")
+                .withArgs(player1.address);
 
             await expect(croakQuest.connect(owner).setMaxBetPercentage(0))
                 .to.be.revertedWithCustomError(croakQuest, "InvalidMaxBetPercentage");
@@ -384,12 +384,14 @@ describe("CroakQuestEfrogsJourney", function () {
 
         it("Should revert pause or unpause when called by non-owner", async function () {
             await expect(croakQuest.connect(player1).pause())
-                .to.be.revertedWith("Only callable by owner");
+                .to.be.revertedWithCustomError(croakQuest, "OwnableUnauthorizedAccount")
+                .withArgs(player1.address);
 
             await croakQuest.connect(owner).pause();
 
             await expect(croakQuest.connect(player1).unpause())
-                .to.be.revertedWith("Only callable by owner");
+                .to.be.revertedWithCustomError(croakQuest, "OwnableUnauthorizedAccount")
+                .withArgs(player1.address);
         });
 
         it("Should allow owner to unpause and emit Unpaused event", async function () {
