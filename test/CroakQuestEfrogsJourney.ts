@@ -340,6 +340,7 @@ describe("CroakQuestEfrogsJourney", function () {
         });
 
         it("Should revert when setMaxBetPercentage is called with invalid values or by non-owner", async function () {
+            // Note: VRFConsumerBaseV2Plus inherits from Chainlink ConfirmedOwnerWithProposal, reverting with "Only callable by owner"
             await expect(croakQuest.connect(player1).setMaxBetPercentage(10))
                 .to.be.revertedWith("Only callable by owner");
 
