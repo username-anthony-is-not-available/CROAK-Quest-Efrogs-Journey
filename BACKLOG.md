@@ -23,6 +23,7 @@ This document tracks the milestones and tasks for CROAK Quest: Efrogs' Journey.
 - [ ] Integrate social sharing for high scores.
 
 ### 🔴 Milestone 3: Security & Optimization
+- [x] Replace block-based randomness with Chainlink VRF for tamper-proof randomness.
 - [ ] Conduct a thorough security audit of smart contracts.
 - [ ] Optimize frontend performance for mobile devices.
 - [ ] Implement advanced error handling and logging.

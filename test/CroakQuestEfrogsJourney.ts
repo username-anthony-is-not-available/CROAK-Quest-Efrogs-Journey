@@ -204,6 +204,46 @@ describe("CroakQuestEfrogsJourney", function () {
             // Check if accumulated funds decreased
             expect(finalAccumulatedFunds).to.be.below(initialAccumulatedFunds);
         });
+
+        it("Should prevent smart contract attacker from querying outcome in the same block", async function () {
+            // Deploy attacker contract
+            const attackerFactory = await ethers.getContractFactory("AttackerContract");
+            const attacker = await attackerFactory.deploy(
+                await croakQuest.getAddress(),
+                await token.getAddress()
+            );
+
+            // Fund attacker contract with tokens
+            await token.mint(await attacker.getAddress(), initialFunds);
+
+            // Attacker tries to bet and determine outcome in the same block/tx
+            const tx = await attacker.attackBet(betAmount);
+            const receipt = await tx.wait();
+            expect(receipt).to.not.be.null;
+
+            // Check BetRequested event was emitted
+            const betRequestedEvent = receipt!.logs.find((log: any) => {
+                try {
+                    const parsed = croakQuest.interface.parseLog({ topics: [...log.topics], data: log.data });
+                    return parsed?.name === 'BetRequested';
+                } catch {
+                    return false;
+                }
+            });
+            expect(betRequestedEvent).to.not.be.undefined;
+
+            // Outcome was NOT resolved in the same block:
+            // Contract tokens were transferred out, but winnings cannot be resolved in the same block
+            const attackerBalance = await token.balanceOf(await attacker.getAddress());
+            expect(attackerBalance).to.equal(initialFunds - betAmount);
+
+            // Decode requestId and verify it is pending in s_requests mapping
+            const decodedEvent = croakQuest.interface.parseLog({ topics: [...betRequestedEvent!.topics], data: betRequestedEvent!.data });
+            const requestId = decodedEvent!.args[0];
+            const pendingRequest = await croakQuest.s_requests(requestId);
+            expect(pendingRequest.player).to.equal(await attacker.getAddress());
+            expect(pendingRequest.amount).to.equal(betAmount);
+        });
     });
 
     describe("Dynamic Max Bet Cap", function () {
