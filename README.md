@@ -22,6 +22,13 @@ This is a **demo project** built for the Linea Dev Cook-Off challenge. While ful
 - **Efrogs NFT Ownership**: Personalize your in-game frog with your Efrogs NFT.
 - **Charming Visuals**: Enjoy ~~vibrant graphics~~ poorly drawn pixel art that bring the pond and its inhabitants to life.
 
+## Tamper-Proof Randomness (Chainlink VRF)
+
+To eliminate the security risks of on-chain pseudo-randomness (e.g. validator manipulation or attacker contracts conditionally reverting losing bets in the same block), CROAK Quest uses Chainlink VRF (Verifiable Random Function) in a two-step betting architecture:
+
+1. **Request Phase (`bet`)**: When a player places a bet, tokens are transferred to the contract and a request is dispatched to the VRF Coordinator via `requestRandomWords`. A `BetRequested(requestId, player, amount)` event is emitted and stored in `s_requests`. The outcome is intentionally not resolved in this transaction, preventing smart contract attackers from querying or conditionally reverting outcomes in the same block.
+2. **Fulfillment Phase (`fulfillRandomWords`)**: In a subsequent block, the off-chain VRF oracle executes `rawFulfillRandomWords` through the VRF Coordinator with verifiable random words. The contract determines the win outcome, distributes payouts or accrues house funds, and emits a `Bet(player, amount, won, nftBonus)` event.
+
 ## House Rules & Betting Limits
 
 To ensure contract solvency and prevent payout transaction reverts due to insufficient house liquidity, individual bet sizes are capped dynamically relative to the contract's accumulated pool:
